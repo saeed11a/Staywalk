@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Footprints } from 'lucide-react';
 import { useAuth } from '../auth';
 import { Button, Input, Field } from '../components/ui';
+import Logo from '../components/Logo';
 
 export default function Login() {
   const { user, login, register } = useAuth();
@@ -27,7 +27,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-bg p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-white"><Footprints size={28} /></div>
+          <Logo className="h-14 w-14 rounded-2xl" size={26} />
           <h1 className="text-xl font-extrabold">HIKER Shoes Factory</h1>
           <p className="microlabel">ERP Login</p>
         </div>

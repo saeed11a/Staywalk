@@ -10,13 +10,26 @@ function tableFor(path) {
 
 router.get('/', (req, res) => {
   const t = tableFor(req.baseUrl);
+  const isCustomer = t === 'customers';
   const rows = db.prepare(`SELECT * FROM ${t} WHERE is_deleted = 0 ORDER BY name`).all();
-  const docs = t === 'customers'
+  const docs = isCustomer
     ? db.prepare('SELECT COUNT(*) AS c FROM invoices WHERE customer_id = ? AND is_deleted = 0')
     : db.prepare('SELECT COUNT(*) AS c FROM purchases WHERE supplier_id = ? AND is_deleted = 0');
+  const lastDebit = isCustomer
+    ? db.prepare("SELECT 'Invoice ' || invoice_no AS label, total AS amount, date FROM invoices WHERE customer_id = ? AND is_deleted = 0 ORDER BY date DESC, id DESC LIMIT 1")
+    : db.prepare("SELECT 'Purchase — ' || item AS label, amount, date FROM purchases WHERE supplier_id = ? AND is_deleted = 0 ORDER BY date DESC, id DESC LIMIT 1");
+  const lastCredit = db.prepare(`SELECT 'Payment (' || method || ')' AS label, amount, date FROM payments WHERE party_type = ? AND party_id = ? AND direction = ? AND is_deleted = 0 ORDER BY date DESC, id DESC LIMIT 1`);
+  const partyType = isCustomer ? 'customer' : 'supplier';
+  const dir = isCustomer ? 'in' : 'out';
   for (const row of rows) {
-    row.balance = ledgerBalance(t, row);
+    const { debit, credit } = ledgerTotals(t, row);
+    row.debit_total = debit;
+    row.credit_total = credit;
+    row.balance = (row.opening_balance || 0) + debit - credit;
     row.doc_count = docs.get(row.id).c;
+    const d = lastDebit.get(row.id);
+    const c = lastCredit.get(partyType, row.id, dir);
+    row.last_transaction = [d, c].filter(Boolean).sort((a, b) => (a.date < b.date ? 1 : -1))[0] || null;
   }
   res.json(rows);
 });
@@ -49,12 +62,16 @@ router.delete('/:id', (req, res) => {
 });
 
 // Party ledger: opening balance + transactions + running balance
-function ledgerBalance(t, row) {
+function ledgerTotals(t, row) {
   const debit = t === 'customers'
     ? db.prepare('SELECT COALESCE(SUM(total), 0) AS s FROM invoices WHERE customer_id = ? AND is_deleted = 0').get(row.id).s
     : db.prepare('SELECT COALESCE(SUM(amount), 0) AS s FROM purchases WHERE supplier_id = ? AND is_deleted = 0').get(row.id).s;
   const credit = db.prepare(`SELECT COALESCE(SUM(amount), 0) AS s FROM payments WHERE party_type = ? AND party_id = ? AND direction = ? AND is_deleted = 0`)
     .get(t === 'customers' ? 'customer' : 'supplier', row.id, t === 'customers' ? 'in' : 'out').s;
+  return { debit, credit };
+}
+function ledgerBalance(t, row) {
+  const { debit, credit } = ledgerTotals(t, row);
   return (row.opening_balance || 0) + debit - credit;
 }
 

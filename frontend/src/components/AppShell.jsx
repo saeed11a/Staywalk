@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../auth';
 import { api } from '../lib/api';
+import Logo from './Logo';
 
 const NAV = [
   { group: 'Overview', items: [{ to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
@@ -41,9 +42,7 @@ function SidebarContent({ company, onNavigate }) {
   return (
     <>
       <div className="flex items-center gap-3 px-5 py-5">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-white">
-          <Footprints size={20} />
-        </div>
+        <Logo />
         <div className="min-w-0">
           <div className="truncate font-heading text-[15px] font-extrabold text-white">{company}</div>
           <div className="text-[10px] font-bold uppercase tracking-wider text-white/45">Shoes Factory ERP</div>
