@@ -1,42 +1,28 @@
 import { useEffect, useState } from 'react';
-import { api, fmtRs, fmtNum } from '../lib/api';
-import { Button, Card, Dialog, Field, Input, Textarea, Select, PageHeader, Empty, StatCard } from '../components/ui';
-import PartyCard from '../components/PartyCard';
-import { Plus, Wallet } from 'lucide-react';
+import { api, fmtRs, today } from '../lib/api';
+import { Button, Card, Dialog, Field, Input, Textarea, Select, PageHeader, Badge, Empty, IconButton } from '../components/ui';
+import { Pencil, Trash2, Plus, BookOpenText } from 'lucide-react';
 
-// Shared by Customers and Suppliers — kata buttons open the party ledger
+// Shared by Customers and Suppliers
 export default function PartyPage({ kind, title }) {
   const base = kind === 'customers' ? '/customers' : '/suppliers';
-  const isCustomer = kind === 'customers';
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState(null);
   const [ledger, setLedger] = useState(null);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
 
   const load = () => api.get(base).then(setRows).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
-
-  // auto-dismiss the save confirmation
-  useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(''), 2500);
-    return () => clearTimeout(t);
-  }, [notice]);
 
   const save = async (e) => {
     e.preventDefault();
     const body = Object.fromEntries(new FormData(e.target).entries());
     body.opening_balance = Number(body.opening_balance) || 0;
-    const isEdit = Boolean(editing.id);
-    const entity = isCustomer ? 'Customer' : 'Supplier';
     try {
-      if (isEdit) await api.put(base + '/' + editing.id, body);
+      if (editing.id) await api.put(base + '/' + editing.id, body);
       else await api.post(base, body);
-      setError('');
-      setEditing(null); // close the dialog immediately on success
-      setNotice(`${entity} ${isEdit ? 'updated' : 'added'} — changes saved.`);
+      setEditing(null);
       load();
     } catch (err) { setError(err.message); }
   };
@@ -56,72 +42,47 @@ export default function PartyPage({ kind, title }) {
   const filtered = rows.filter((r) =>
     [r.name, r.phone, r.city].join(' ').toLowerCase().includes(q.toLowerCase()));
 
-  const owed = rows.reduce((s, r) => s + Math.max(Number(r.balance) || 0, 0), 0);
-  const advances = rows.reduce((s, r) => s + Math.max(-(Number(r.balance) || 0), 0), 0);
-  const docs = rows.reduce((s, r) => s + (Number(r.doc_count) || 0), 0);
-
   return (
     <div>
-      <PageHeader
-        label="Kata"
-        title={`${title} (${rows.length})`}
-        description={isCustomer
-          ? 'Pick a customer button to open his kata — details, invoices, receipts and running balance.'
-          : 'Each supplier button opens his kata: product details, purchases, payments and remaining balance.'}
-        actions={
-          <>
-            <Input placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} className="!w-44" />
-            <Button onClick={() => setEditing({ name: '', phone: '', address: '', city: '', product_details: '', opening_balance: '', status: 'active' })}>
-              <Plus size={15} /> New {isCustomer ? 'customer' : 'supplier'}
-            </Button>
-          </>
-        }
-      />
+      <PageHeader title={title} actions={
+        <>
+          <Input placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} className="!w-48" />
+          <Button onClick={() => setEditing({ name: '', phone: '', address: '', city: '', product_details: '', opening_balance: '', status: 'active' })}>
+            <Plus size={15} /> Add {kind === 'customers' ? 'customer' : 'supplier'}
+          </Button>
+        </>
+      } />
       {error && <div className="mb-3 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">{error}</div>}
-      {notice && <div className="mb-3 rounded-lg bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">{notice}</div>}
-
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label={isCustomer ? 'Customers' : 'Suppliers'} value={fmtNum(rows.length)} accent="copper" />
-        <StatCard label={isCustomer ? 'Receivable' : 'Payable'} value={fmtRs(owed)}
-          sub={isCustomer ? 'Owed to the factory' : 'Owed by the factory'} accent="teal" />
-        <StatCard label={isCustomer ? 'Advances' : 'Advances paid'} value={fmtRs(advances)}
-          sub={isCustomer ? 'Paid in advance' : 'Paid ahead of supply'} accent="ink" />
-        <StatCard label={isCustomer ? 'Invoices' : 'Purchases'} value={fmtNum(docs)} accent="copper" />
-      </div>
-
-      <Card title={`${title} Kata`} actions={<span className="text-[11px] font-semibold text-mutedfg">{fmtNum(rows.length)} accounts</span>}>
-        {filtered.length === 0 ? (
-          <Empty title={`No ${isCustomer ? 'customers' : 'suppliers'} yet`}>
-            Add one to start recording {isCustomer ? 'invoices and receipts' : 'purchases and payments'}.
-          </Empty>
-        ) : (
-          <div className="grid auto-rows-fr grid-cols-1 items-stretch gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((r) => (
-              <PartyCard
-                key={r.id}
-                party={r}
-                isCustomer={isCustomer}
-                onOpen={() => showLedger(r)}
-                onEdit={() => setEditing(r)}
-                onDelete={() => remove(r)}
-              />
-            ))}
+      <Card>
+        {filtered.length === 0 ? <Empty>Nothing here yet.</Empty> : (
+          <div className="overflow-x-auto">
+            <table className="tbl">
+              <thead><tr><th>Name</th><th>Phone</th><th>City</th><th>Products</th><th className="text-right">Opening</th><th className="text-right">{kind === 'customers' ? 'Receivable (kata)' : 'Payable (kata)'}</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                {filtered.map((r) => (
+                  <tr key={r.id}>
+                    <td className="font-semibold">{r.name}</td>
+                    <td className="num">{r.phone || '—'}</td>
+                    <td className="text-mutedfg">{r.city || '—'}</td>
+                    <td className="text-mutedfg">{r.product_details || '—'}</td>
+                    <td className="num text-right">{fmtRs(r.opening_balance)}</td>
+                    <td className="num text-right font-bold">{fmtRs(r.balance)}</td>
+                    <td><Badge tone={r.status === 'active' ? 'active' : 'inactive'}>{r.status}</Badge></td>
+                    <td className="whitespace-nowrap">
+                      <IconButton onClick={() => showLedger(r)} title="Ledger"><BookOpenText size={14} /></IconButton>
+                      <IconButton onClick={() => setEditing(r)}><Pencil size={14} /></IconButton>
+                      <IconButton onClick={() => remove(r)}><Trash2 size={14} /></IconButton>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </Card>
 
-      <div className="mt-4 flex items-center gap-3 rounded-xl border border-borderc bg-card p-4">
-        <Wallet size={18} className="shrink-0 text-copper" />
-        <div>
-          <div className="font-heading text-[13px] font-bold">Select a {isCustomer ? 'customer' : 'supplier'} to open the kata</div>
-          <div className="text-[11px] text-mutedfg">
-            The kata shows every {isCustomer ? 'invoice' : 'purchase'}, payment and the running balance.
-          </div>
-        </div>
-      </div>
-
       {editing && (
-        <Dialog title={editing.id ? `Edit ${editing.name}` : `New ${isCustomer ? 'customer' : 'supplier'}`} onClose={() => setEditing(null)}>
+        <Dialog title={editing.id ? `Edit ${editing.name}` : 'New entry'} onClose={() => setEditing(null)}>
           <form onSubmit={save} className="p-5">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Name *" className="col-span-2"><Input name="name" defaultValue={editing.name} required autoFocus /></Field>
