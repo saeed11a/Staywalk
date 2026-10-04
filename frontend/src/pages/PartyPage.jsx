@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { api, fmtRs, fmtNum, today } from '../lib/api';
-import { Button, Card, Dialog, Field, Input, Textarea, Select, PageHeader, Empty, IconButton, StatCard } from '../components/ui';
-import { Pencil, Trash2, Plus, Phone, Wallet } from 'lucide-react';
+import { api, fmtRs, fmtNum } from '../lib/api';
+import { Button, Card, Dialog, Field, Input, Textarea, Select, PageHeader, Empty, StatCard } from '../components/ui';
+import PartyCard from '../components/PartyCard';
+import { Plus, Wallet } from 'lucide-react';
 
 // Shared by Customers and Suppliers — kata buttons open the party ledger
 export default function PartyPage({ kind, title }) {
@@ -81,50 +82,17 @@ export default function PartyPage({ kind, title }) {
             Add one to start recording {isCustomer ? 'invoices and receipts' : 'purchases and payments'}.
           </Empty>
         ) : (
-          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((r) => {
-              const bal = Number(r.balance) || 0;
-              const initial = (r.name?.[0] || '?').toUpperCase();
-              const lt = r.last_transaction;
-              return (
-                <div key={r.id} className="rounded-xl bg-navy p-4 text-white">
-                  <div className="flex items-start justify-between gap-2">
-                    <button onClick={() => showLedger(r)} className="flex items-center gap-3 text-left">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[14px] font-bold text-navy">{initial}</span>
-                      <span className="font-heading text-[15px] font-bold hover:underline">{r.name}</span>
-                    </button>
-                    <div className="flex shrink-0 gap-1">
-                      <IconButton className="bg-white/10 text-white hover:bg-white/20 hover:text-white" onClick={() => setEditing(r)} title="Edit"><Pencil size={13} /></IconButton>
-                      <IconButton className="text-red-400 hover:bg-red-500/15 hover:text-red-400" onClick={() => remove(r)} title="Delete"><Trash2 size={13} /></IconButton>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 space-y-1 text-[13px] font-semibold">
-                    <div className="flex items-center justify-between text-emerald-400">
-                      <span>Jamma (Credit)</span><span className="num">{fmtRs(r.credit_total)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-red-400">
-                      <span>Banam (Debit)</span><span className="num">{fmtRs(r.debit_total)}</span>
-                    </div>
-                    <div className={`flex items-center justify-between pt-1 text-[14px] font-extrabold ${bal > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                      <span>Remaining</span><span className="num">{bal > 0 ? '-' : '+'}{fmtRs(Math.abs(bal))}</span>
-                    </div>
-                  </div>
-
-                  {r.phone && (
-                    <div className="mt-2 flex items-center gap-1.5 text-[11px] text-white/50"><Phone size={11} /> {r.phone}</div>
-                  )}
-
-                  {lt && (
-                    <div className="mt-3 border-t border-white/10 pt-3">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-white/40">Last transaction</div>
-                      <div className="mt-1 text-[12px] font-bold">{lt.label}</div>
-                      <div className="text-[11px] text-white/40">{lt.date}</div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          <div className="grid auto-rows-fr grid-cols-1 items-stretch gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((r) => (
+              <PartyCard
+                key={r.id}
+                party={r}
+                isCustomer={isCustomer}
+                onOpen={() => showLedger(r)}
+                onEdit={() => setEditing(r)}
+                onDelete={() => remove(r)}
+              />
+            ))}
           </div>
         )}
       </Card>

@@ -11,11 +11,12 @@ function CashStat({ label, value, tone }) {
     in: 'bg-emerald-600 text-white',
     out: 'bg-red-600 text-white',
     balance: 'bg-emerald-700 text-white',
+    balanceNegative: 'bg-red-600 text-white',
   };
   return (
-    <div className={`rounded-xl p-4 ${tones[tone]}`}>
+    <div className={`rounded-xl p-4 transition-colors ${tones[tone]}`}>
       <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">{label}</div>
-      <div className="num mt-1.5 text-[20px] font-extrabold">{fmtRs(value)}</div>
+      <div className="num mt-1.5 text-[20px] font-extrabold">{value < 0 ? '−' : ''}{fmtRs(Math.abs(value))}</div>
     </div>
   );
 }
@@ -97,6 +98,7 @@ export default function Roznamcha() {
   const outRows = rows.filter((r) => r.direction === 'out');
   const totalIn = inRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
   const totalOut = outRows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const remaining = Number(dashboard?.cash ?? totalIn - totalOut);
   const form = editing || creating ? (editing || { direction: 'in', source: 'other_income', date: today() }) : null;
 
   return (
@@ -123,7 +125,7 @@ export default function Roznamcha() {
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <CashStat label="In" value={totalIn} tone="in" />
         <CashStat label="Out" value={totalOut} tone="out" />
-        <CashStat label="Remaining" value={dashboard?.cash ?? totalIn - totalOut} tone="balance" />
+        <CashStat label="Remaining" value={remaining} tone={remaining < 0 ? 'balanceNegative' : 'balance'} />
       </div>
 
       <DateRange from={from} setFrom={setFrom} to={to} setTo={setTo} onClear={() => { setFrom(daysAgo(30)); setTo(today()); }} />
