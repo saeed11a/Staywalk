@@ -13,18 +13,30 @@ export default function PartyPage({ kind, title }) {
   const [editing, setEditing] = useState(null);
   const [ledger, setLedger] = useState(null);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const load = () => api.get(base).then(setRows).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
+
+  // auto-dismiss the save confirmation
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(''), 2500);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   const save = async (e) => {
     e.preventDefault();
     const body = Object.fromEntries(new FormData(e.target).entries());
     body.opening_balance = Number(body.opening_balance) || 0;
+    const isEdit = Boolean(editing.id);
+    const entity = isCustomer ? 'Customer' : 'Supplier';
     try {
-      if (editing.id) await api.put(base + '/' + editing.id, body);
+      if (isEdit) await api.put(base + '/' + editing.id, body);
       else await api.post(base, body);
-      setEditing(null);
+      setError('');
+      setEditing(null); // close the dialog immediately on success
+      setNotice(`${entity} ${isEdit ? 'updated' : 'added'} — changes saved.`);
       load();
     } catch (err) { setError(err.message); }
   };
@@ -66,6 +78,7 @@ export default function PartyPage({ kind, title }) {
         }
       />
       {error && <div className="mb-3 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">{error}</div>}
+      {notice && <div className="mb-3 rounded-lg bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">{notice}</div>}
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label={isCustomer ? 'Customers' : 'Suppliers'} value={fmtNum(rows.length)} accent="copper" />
