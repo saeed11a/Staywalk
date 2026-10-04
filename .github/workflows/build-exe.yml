@@ -1,0 +1,37 @@
+name: Build Windows .exe
+
+# Builds the Electron desktop wrapper of Hiker ERP.
+# Set the APP_URL repository variable (Settings > Secrets and variables > Actions)
+# to your deployed Hiker ERP web address before running.
+on:
+  workflow_dispatch:
+  push:
+    branches: [exe]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Bake app URL into the build
+        shell: pwsh
+        run: Set-Content -NoNewline -Path desktop/app-url.txt -Value "${{ vars.APP_URL }}"
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+
+      - name: Package .exe
+        working-directory: desktop
+        run: npx electron-builder --win nsis
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: hiker-erp-windows-exe
+          path: desktop/dist/*.exe
