@@ -3,6 +3,7 @@ import { api, fmtRs, fmtNum } from '../lib/api';
 import { downloadCSV } from '../lib/csv';
 import { Button, Card, Dialog, Field, Input, Select, PageHeader, Badge, Empty, IconButton, StatCard } from '../components/ui';
 import { Pencil, Trash2, Plus, RefreshCw, Download, Printer } from 'lucide-react';
+import { ClickableRow, rowAction } from '../components/RecordDialog';
 
 const BLANK = { name: '', category: '', sizes: '', colors: '', upper_type: '', sole_type: '', cost_price: '', selling_price: '', status: 'active' };
 
@@ -87,7 +88,7 @@ export default function Articles() {
               </thead>
               <tbody>
                 {filtered.map((r) => (
-                  <tr key={r.id}>
+                  <ClickableRow key={r.id} onOpen={() => setEditing(r)}>
                     <td>
                       <div className="num font-semibold">{r.code}</div>
                       <div className="text-[11px] text-mutedfg">{r.name}</div>
@@ -99,10 +100,10 @@ export default function Articles() {
                     <td className="num text-right">{r.sold ? fmtNum(r.sold) : '—'}</td>
                     <td><Badge tone={r.status === 'active' ? 'active' : 'inactive'}>{r.status}</Badge></td>
                     <td className="whitespace-nowrap">
-                      <IconButton onClick={() => setEditing(r)}><Pencil size={14} /></IconButton>
-                      <IconButton onClick={() => remove(r)}><Trash2 size={14} /></IconButton>
+                      <IconButton onClick={rowAction(() => setEditing(r))}><Pencil size={14} /></IconButton>
+                      <IconButton onClick={rowAction(() => remove(r))}><Trash2 size={14} /></IconButton>
                     </td>
-                  </tr>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>

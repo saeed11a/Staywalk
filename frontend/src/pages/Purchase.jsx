@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, fmtRs, fmtNum, today, daysAgo } from '../lib/api';
 import { downloadCSV } from '../lib/csv';
 import { BAG_SIZES, isBag } from '../lib/packs';
+import { ClickableRow, rowAction, RecordDialog } from '../components/RecordDialog';
 import { Button, Card, Dialog, Field, Input, Select, PageHeader, Empty, IconButton, StatCard, DateRange } from '../components/ui';
 import { Plus, Trash2, Download, Printer } from 'lucide-react';
 
@@ -13,6 +14,7 @@ export default function Purchase() {
   const [to, setTo] = useState(today());
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(null);
+  const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
 
   const load = () => api.get(`/purchases?from=${from}&to=${to}`).then(setRows).catch((e) => setError(e.message));
@@ -91,7 +93,7 @@ export default function Purchase() {
               <thead><tr><th>Date</th><th>Item</th><th>Supplier</th><th className="text-right">Quantity</th><th className="text-right">Pairs</th><th className="text-right">Rate</th><th className="text-right">Amount</th><th></th></tr></thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id}>
+                  <ClickableRow key={r.id} onOpen={() => setDetail(r)}>
                     <td className="num text-mutedfg">{r.date}</td>
                     <td>
                       <div className="font-semibold">{r.item}</div>
@@ -102,8 +104,8 @@ export default function Purchase() {
                     <td className="num text-right">{r.total_pairs ? fmtNum(r.total_pairs) : '—'}</td>
                     <td className="num text-right">{fmtRs(r.unit_price)}</td>
                     <td className="num text-right font-bold">{fmtRs(r.amount)}</td>
-                    <td><IconButton onClick={() => remove(r)}><Trash2 size={14} /></IconButton></td>
-                  </tr>
+                    <td><IconButton onClick={rowAction(() => remove(r))}><Trash2 size={14} /></IconButton></td>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>
@@ -156,6 +158,26 @@ export default function Purchase() {
             </div>
           </form>
         </Dialog>
+      )}
+
+      {detail && (
+        <RecordDialog
+          title={`Purchase — ${detail.item}`}
+          subtitle={`${detail.supplier_name || ''} · ${detail.date}`}
+          onClose={() => setDetail(null)}
+          fields={[
+            ['Date', detail.date],
+            ['Supplier', detail.supplier_name],
+            ['Item', detail.item],
+            ['Category', detail.category_slug],
+            ['Pack type', detail.pack_type],
+            ['Pairs per pack', fmtNum(detail.pairs_per_pack)],
+            ['Quantity', fmtNum(detail.quantity)],
+            ['Total pairs', `${fmtNum(detail.total_pairs)} prs`],
+            ['Unit price', fmtRs(detail.unit_price)],
+            ['Amount', fmtRs(detail.amount)],
+          ]}
+        />
       )}
     </div>
   );

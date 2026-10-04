@@ -3,12 +3,14 @@ import { api, fmtRs, fmtNum, today, daysAgo } from '../lib/api';
 import { downloadCSV } from '../lib/csv';
 import { Button, Card, Dialog, Field, Input, Select, PageHeader, Empty, IconButton, StatCard, DateRange } from '../components/ui';
 import { Plus, Trash2, Download, Printer } from 'lucide-react';
+import { ClickableRow, rowAction, RecordDialog } from '../components/RecordDialog';
 
 export default function Kharcha() {
   const [rows, setRows] = useState([]);
   const [from, setFrom] = useState(daysAgo(30));
   const [to, setTo] = useState(today());
   const [creating, setCreating] = useState(false);
+  const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
 
   const load = () => api.get(`/kharcha?from=${from}&to=${to}`).then(setRows).catch((e) => setError(e.message));
@@ -74,13 +76,20 @@ export default function Kharcha() {
               <thead><tr><th>Date</th><th>Expense</th><th>Category</th><th className="text-right">Amount</th><th></th></tr></thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id}>
+                  <ClickableRow key={r.id} onOpen={() => setDetail({
+                    title: `Expense — ${r.category || 'Uncategorised'}`,
+                    subtitle: r.date,
+                    fields: [
+                      ['Date', r.date], ['Category', r.category], ['Description', r.description],
+                      ['Amount', fmtRs(r.amount)], ['Method', r.method],
+                    ],
+                  })}>
                     <td className="num text-mutedfg">{r.date}</td>
                     <td>{r.description || '—'}</td>
                     <td className="font-semibold">{r.category || '—'}</td>
                     <td className="num text-right font-bold text-red-600">{fmtRs(r.amount)}</td>
-                    <td><IconButton onClick={() => remove(r)}><Trash2 size={14} /></IconButton></td>
-                  </tr>
+                    <td><IconButton onClick={rowAction(() => remove(r))}><Trash2 size={14} /></IconButton></td>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>
@@ -93,10 +102,14 @@ export default function Kharcha() {
           <table className="tbl">
             <tbody>
               {byCategory.map(([name, amount]) => (
-                <tr key={name}>
+                <ClickableRow key={name} onOpen={() => setDetail({
+                  title: `Spend — ${name}`,
+                  subtitle: 'Total of every entry in this category',
+                  fields: [['Category', name], ['Total spend', fmtRs(amount)]],
+                })}>
                   <td>{name}</td>
                   <td className="num text-right font-bold">{fmtRs(amount)}</td>
-                </tr>
+                </ClickableRow>
               ))}
             </tbody>
           </table>
@@ -121,6 +134,8 @@ export default function Kharcha() {
           </form>
         </Dialog>
       )}
+
+      {detail && <RecordDialog {...detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }

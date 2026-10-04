@@ -3,6 +3,7 @@ import { api, fmtRs, fmtNum, daysAgo, today } from '../lib/api';
 import { downloadCSV } from '../lib/csv';
 import { Button, Card, PageHeader, Empty, Badge, Input, StatCard, DateRange } from '../components/ui';
 import { Download, Printer } from 'lucide-react';
+import { ClickableRow, RecordDialog } from '../components/RecordDialog';
 
 const TABS = [
   { key: 'stock', label: 'Stock' },
@@ -19,8 +20,8 @@ const CONFIG = {
     columns: ['Date', 'Direction', 'Source', 'Party', 'Description', 'Category', 'Amount', 'Method'],
     toRow: (r) => [r.date, r.direction, r.source, r.party, r.description, r.category, r.amount, r.method],
     head: ['Date', 'Dir', 'Source', 'Party', 'Description', 'Category', 'Amount', 'Method'],
-    render: (rows) => rows.map((r) => (
-      <tr key={r.id}>
+    render: (rows, onOpen) => rows.map((r) => (
+      <ClickableRow key={r.id} onOpen={() => onOpen(r)}>
         <td className="num text-mutedfg">{r.date}</td>
         <td><Badge tone={r.direction}>{r.direction}</Badge></td>
         <td>{r.source}</td>
@@ -29,7 +30,7 @@ const CONFIG = {
         <td className="text-mutedfg">{r.category || '—'}</td>
         <td className={`num text-right font-bold ${r.direction === 'in' ? 'text-emerald-700' : 'text-red-600'}`}>{fmtRs(r.amount)}</td>
         <td className="text-mutedfg">{r.method}</td>
-      </tr>
+      </ClickableRow>
     )),
   },
   payments: {
@@ -37,8 +38,8 @@ const CONFIG = {
     columns: ['Date', 'Party', 'Type', 'Direction', 'Amount', 'Method', 'Reference'],
     toRow: (r) => [r.date, r.party_name, r.party_type, r.direction, r.amount, r.method, r.reference],
     head: ['Date', 'Party', 'Type', 'Dir', 'Amount', 'Method', 'Reference'],
-    render: (rows) => rows.map((r) => (
-      <tr key={r.id}>
+    render: (rows, onOpen) => rows.map((r) => (
+      <ClickableRow key={r.id} onOpen={() => onOpen(r)}>
         <td className="num text-mutedfg">{r.date}</td>
         <td className="font-semibold">{r.party_name}</td>
         <td className="text-mutedfg">{r.party_type}</td>
@@ -46,7 +47,7 @@ const CONFIG = {
         <td className={`num text-right font-bold ${r.direction === 'in' ? 'text-emerald-700' : 'text-red-600'}`}>{fmtRs(r.amount)}</td>
         <td className="text-mutedfg">{r.method}</td>
         <td className="text-mutedfg">{r.reference || '—'}</td>
-      </tr>
+      </ClickableRow>
     )),
   },
   kharcha: {
@@ -54,14 +55,14 @@ const CONFIG = {
     columns: ['Date', 'Category', 'Description', 'Amount', 'Method'],
     toRow: (r) => [r.date, r.category, r.description, r.amount, r.method],
     head: ['Date', 'Category', 'Description', 'Amount', 'Method'],
-    render: (rows) => rows.map((r) => (
-      <tr key={r.id}>
+    render: (rows, onOpen) => rows.map((r) => (
+      <ClickableRow key={r.id} onOpen={() => onOpen(r)}>
         <td className="num text-mutedfg">{r.date}</td>
         <td>{r.category || '—'}</td>
         <td>{r.description || '—'}</td>
         <td className="num text-right font-bold text-red-600">{fmtRs(r.amount)}</td>
         <td className="text-mutedfg">{r.method}</td>
-      </tr>
+      </ClickableRow>
     )),
   },
   sales: {
@@ -69,8 +70,8 @@ const CONFIG = {
     columns: ['Invoice', 'Date', 'Customer', 'Article', 'Cartons', 'Pairs', 'Rate', 'Amount'],
     toRow: (r) => [r.invoice_no, r.date, r.customer_name, `${r.article_code} ${r.article_name}`, r.cartons, r.pairs, r.rate, r.amount],
     head: ['Invoice', 'Date', 'Customer', 'Article', 'Cartons × pairs', 'Pairs', 'Rate', 'Amount'],
-    render: (rows) => rows.map((r, i) => (
-      <tr key={i}>
+    render: (rows, onOpen) => rows.map((r, i) => (
+      <ClickableRow key={i} onOpen={() => onOpen(r)}>
         <td className="num font-semibold">{r.invoice_no}</td>
         <td className="num text-mutedfg">{r.date}</td>
         <td>{r.customer_name}</td>
@@ -79,7 +80,7 @@ const CONFIG = {
         <td className="num text-right">{fmtNum(r.pairs)}</td>
         <td className="num text-right">{fmtRs(r.rate)}</td>
         <td className="num text-right font-bold">{fmtRs(r.amount)}</td>
-      </tr>
+      </ClickableRow>
     )),
   },
   purchase: {
@@ -87,8 +88,8 @@ const CONFIG = {
     columns: ['Date', 'Supplier', 'Item', 'Category', 'Quantity', 'Total pairs', 'Amount'],
     toRow: (r) => [r.date, r.supplier_name, r.item, r.category_slug, r.quantity, r.total_pairs, r.amount],
     head: ['Date', 'Supplier', 'Item', 'Category', 'Qty', 'Total pairs', 'Amount'],
-    render: (rows) => rows.map((r) => (
-      <tr key={r.id}>
+    render: (rows, onOpen) => rows.map((r) => (
+      <ClickableRow key={r.id} onOpen={() => onOpen(r)}>
         <td className="num text-mutedfg">{r.date}</td>
         <td className="font-semibold">{r.supplier_name}</td>
         <td>{r.item}</td>
@@ -96,7 +97,7 @@ const CONFIG = {
         <td className="num text-right">{fmtNum(r.quantity)}</td>
         <td className="num text-right">{fmtNum(r.total_pairs)}</td>
         <td className="num text-right font-bold">{fmtRs(r.amount)}</td>
-      </tr>
+      </ClickableRow>
     )),
   },
 };
@@ -107,6 +108,7 @@ export default function Reports() {
   const [to, setTo] = useState(today());
   const [rows, setRows] = useState([]);
   const [stockReport, setStockReport] = useState(null);
+  const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -119,6 +121,13 @@ export default function Reports() {
   }, [tab, from, to]);
 
   const cfg = CONFIG[tab];
+
+  // Report rows mirror a module record — show it in the same label/value form view.
+  const openDetail = (r) => setDetail({
+    title: `${TABS.find((t) => t.key === tab).label} — ${[r.invoice_no, r.item, r.party_name, r.party, r.description, r.category].filter(Boolean)[0] || r.date || 'record'}`,
+    subtitle: r.date || '',
+    fields: cfg.columns.map((label, i) => [label, cfg.toRow(r)[i]]),
+  });
 
   return (
     <div>
@@ -178,13 +187,20 @@ export default function Reports() {
                   <thead><tr><th>Category</th><th className="text-right">Lines</th><th className="text-right">Quantity</th><th className="text-right">Pairs</th><th className="text-right">Value</th></tr></thead>
                   <tbody>
                     {stockReport.byCategory.map((c) => (
-                      <tr key={c.category}>
+                      <ClickableRow key={c.category} onOpen={() => setDetail({
+                        title: `Raw stock — ${c.category}`,
+                        subtitle: 'Totals for this category',
+                        fields: [
+                          ['Category', c.category], ['Lines', fmtNum(c.lines)],
+                          ['Quantity', fmtNum(c.quantity)], ['Pairs', fmtNum(c.pairs)], ['Value', fmtRs(c.value)],
+                        ],
+                      })}>
                         <td className="font-semibold">{c.category}</td>
                         <td className="num text-right">{fmtNum(c.lines)}</td>
                         <td className="num text-right">{fmtNum(c.quantity)}</td>
                         <td className="num text-right">{fmtNum(c.pairs)}</td>
                         <td className="num text-right font-bold">{fmtRs(c.value)}</td>
-                      </tr>
+                      </ClickableRow>
                     ))}
                   </tbody>
                 </table>
@@ -205,7 +221,16 @@ export default function Reports() {
                   </thead>
                   <tbody>
                     {stockReport.byArticle.map((a) => (
-                      <tr key={a.code}>
+                      <ClickableRow key={a.code} onOpen={() => setDetail({
+                        title: `Article — ${a.code}`,
+                        subtitle: a.name,
+                        fields: [
+                          ['Article', a.code], ['Name', a.name],
+                          ['Uppers bags', fmtNum(a.uppers_bags)], ['Uppers used', fmtNum(a.uppers_used)],
+                          ['Uppers in stock', fmtNum(a.uppers_pairs)], ['Produced', fmtNum(a.produced)],
+                          ['Sold', fmtNum(a.sold)], ['Ready in stock', fmtNum(a.ready)], ['Sales value', fmtRs(a.value)],
+                        ],
+                      })}>
                         <td>
                           <div className="num font-semibold">{a.code}</div>
                           <div className="text-[11px] text-mutedfg">{a.name}</div>
@@ -217,7 +242,7 @@ export default function Reports() {
                         <td className="num text-right">{fmtNum(a.sold)}</td>
                         <td className="num text-right font-bold">{fmtNum(a.ready)}</td>
                         <td className="num text-right font-semibold">{fmtRs(a.value)}</td>
-                      </tr>
+                      </ClickableRow>
                     ))}
                   </tbody>
                 </table>
@@ -239,13 +264,15 @@ export default function Reports() {
                       ))}
                     </tr>
                   </thead>
-                  <tbody>{cfg.render(rows)}</tbody>
+                  <tbody>{cfg.render(rows, openDetail)}</tbody>
                 </table>
               </div>
             )}
           </Card>
         </>
       )}
+
+      {detail && <RecordDialog {...detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }

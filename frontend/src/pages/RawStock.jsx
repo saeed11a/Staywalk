@@ -4,6 +4,7 @@ import { Button, Card, Dialog, Field, Input, Select, PageHeader, Badge, Empty, I
 import { Pencil, Trash2, Plus, Layers, FlaskConical, Package, Hexagon, Boxes, Download, Printer } from 'lucide-react';
 import { downloadCSV } from '../lib/csv';
 import { BAG_SIZES, isBag } from '../lib/packs';
+import { ClickableRow, rowAction } from '../components/RecordDialog';
 
 const ICONS = { uppers: Layers, chemicals: FlaskConical, 'sole-sheets': Hexagon, laces: Package };
 const BUILT_IN = ['uppers', 'chemicals', 'laces', 'sole-sheets'];
@@ -163,7 +164,7 @@ export default function RawStock() {
               <thead><tr><th>Item</th><th>Category</th><th>Article</th><th>Pack type</th><th className="text-right">Pairs/pack</th><th className="text-right">Qty</th><th className="text-right">Total pairs</th><th className="text-right">Price</th><th className="text-right">Amount</th><th>Supplier</th><th>Date</th><th></th></tr></thead>
               <tbody>
                 {shown.map((r) => (
-                  <tr key={r.id}>
+                  <ClickableRow key={r.id} onOpen={() => setEditing({ ...r, supplier_id: r.supplier_id || '' })}>
                     <td className="font-semibold">{r.item}</td>
                     <td><Badge tone="copper">{r.category_slug}</Badge></td>
                     <td className="num">{r.article_code || '—'}</td>
@@ -176,10 +177,10 @@ export default function RawStock() {
                     <td className="text-mutedfg">{r.supplier_name || '—'}</td>
                     <td className="num text-mutedfg">{r.date}</td>
                     <td className="whitespace-nowrap">
-                      <IconButton onClick={() => setEditing({ ...r, supplier_id: r.supplier_id || '' })}><Pencil size={14} /></IconButton>
-                      <IconButton onClick={() => remove(r)}><Trash2 size={14} /></IconButton>
+                      <IconButton onClick={rowAction(() => setEditing({ ...r, supplier_id: r.supplier_id || '' }))}><Pencil size={14} /></IconButton>
+                      <IconButton onClick={rowAction(() => remove(r))}><Trash2 size={14} /></IconButton>
                     </td>
-                  </tr>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>

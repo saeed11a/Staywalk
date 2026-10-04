@@ -4,6 +4,7 @@ import { api, fmtRs, fmtNum, today, daysAgo } from '../lib/api';
 import { downloadCSV } from '../lib/csv';
 import { Button, Card, Dialog, PageHeader, Badge, Empty, IconButton, StatCard, DateRange } from '../components/ui';
 import { Plus, Trash2, Printer, Download } from 'lucide-react';
+import { ClickableRow, rowAction } from '../components/RecordDialog';
 
 export default function Invoices() {
   const [rows, setRows] = useState([]);
@@ -67,10 +68,8 @@ export default function Invoices() {
               <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th className="text-right">Cartons × pairs</th><th className="text-right">Total</th><th className="text-right">Received</th><th className="text-right">Balance</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td className="num font-semibold">
-                      <button onClick={() => view(r)} className="text-copper hover:underline">{r.invoice_no}</button>
-                    </td>
+                  <ClickableRow key={r.id} onOpen={() => view(r)}>
+                    <td className="num font-semibold text-copper">{r.invoice_no}</td>
                     <td className="num text-mutedfg">{r.date}</td>
                     <td>{r.customer_name}</td>
                     <td className="num text-right">{fmtNum(r.total_cartons)} × {fmtNum(r.total_pairs)}</td>
@@ -79,10 +78,10 @@ export default function Invoices() {
                     <td className="num text-right">{fmtRs(r.balance)}</td>
                     <td><Badge tone={r.status}>{r.status}</Badge></td>
                     <td className="whitespace-nowrap">
-                      <Link to={`/invoices/${r.id}/print`} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-mutedfg hover:bg-muted hover:text-fg" title="Print"><Printer size={14} /></Link>
-                      <IconButton onClick={() => remove(r)}><Trash2 size={14} /></IconButton>
+                      <Link to={`/invoices/${r.id}/print`} onClick={rowAction(() => {})} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-mutedfg hover:bg-muted hover:text-fg" title="Print"><Printer size={14} /></Link>
+                      <IconButton onClick={rowAction(() => remove(r))}><Trash2 size={14} /></IconButton>
                     </td>
-                  </tr>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>
@@ -93,6 +92,22 @@ export default function Invoices() {
       {viewing && (
         <Dialog title={`Invoice ${viewing.invoice_no}`} onClose={() => setViewing(null)} wide>
           <div className="p-5">
+            <div className="mb-4 grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+              {[
+                ['Customer', viewing.customer_name], ['Date', viewing.date],
+                ['Status', viewing.status], ['Payment', viewing.payment_method],
+                ['Cartons', fmtNum(viewing.total_cartons)], ['Pairs', fmtNum(viewing.total_pairs)],
+                ['Subtotal', fmtRs(viewing.subtotal)], ['Discount', fmtRs(viewing.discount)],
+                ['Total', fmtRs(viewing.total)], ['Received', fmtRs(viewing.received)],
+                ['Balance', fmtRs(viewing.balance)], ['Phone', viewing.customer_phone],
+                ['City', viewing.customer_city], ['Notes', viewing.notes],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-baseline justify-between gap-3 border-b border-borderc py-2">
+                  <span className="microlabel">{label}</span>
+                  <span className="num text-right text-[13px] font-semibold">{value === '' || value == null ? '—' : value}</span>
+                </div>
+              ))}
+            </div>
             <table className="tbl">
               <thead><tr><th>Article</th><th>Carton type</th><th className="text-right">Cartons</th><th className="text-right">Pairs</th><th className="text-right">Rate</th><th className="text-right">Amount</th></tr></thead>
               <tbody>

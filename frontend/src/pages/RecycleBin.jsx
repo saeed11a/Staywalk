@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { Card, PageHeader, Empty, IconButton, Badge, StatCard, Field, Input, Select } from '../components/ui';
 import { RotateCcw, Trash2, AlertTriangle } from 'lucide-react';
+import { ClickableRow, rowAction, RecordDialog } from '../components/RecordDialog';
 
 export default function RecycleBin() {
   const [rows, setRows] = useState([]);
   const [table, setTable] = useState('');
   const [q, setQ] = useState('');
+  const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
 
   const load = () => api.get('/recycle-bin').then(setRows).catch((e) => setError(e.message));
@@ -70,15 +72,24 @@ export default function RecycleBin() {
               <thead><tr><th>Module</th><th>Record</th><th>Deleted</th><th></th></tr></thead>
               <tbody>
                 {filtered.map((r, i) => (
-                  <tr key={`${r.table}-${r.id}-${i}`}>
+                  <ClickableRow key={`${r.table}-${r.id}-${i}`} onOpen={() => setDetail({
+                    title: `Deleted — ${r.label || `#${r.id}`}`,
+                    subtitle: 'This record can be restored from the row buttons, or deleted permanently.',
+                    fields: [
+                      ['Module', r.table.replace(/_/g, ' ')],
+                      ['Record', r.label || `#${r.id}`],
+                      ['Record id', r.id],
+                      ['Deleted on', r.deleted_date],
+                    ],
+                  })}>
                     <td><Badge tone="copper">{r.table.replace(/_/g, ' ')}</Badge></td>
                     <td className="font-semibold text-red-600">{r.label || `#${r.id}`}</td>
                     <td className="num text-mutedfg">{r.deleted_date}</td>
                     <td className="whitespace-nowrap">
-                      <IconButton onClick={() => restore(r)} title="Restore"><RotateCcw size={14} /></IconButton>
-                      <IconButton onClick={() => purge(r)} title="Delete permanently"><Trash2 size={14} /></IconButton>
+                      <IconButton onClick={rowAction(() => restore(r))} title="Restore"><RotateCcw size={14} /></IconButton>
+                      <IconButton onClick={rowAction(() => purge(r))} title="Delete permanently"><Trash2 size={14} /></IconButton>
                     </td>
-                  </tr>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>
@@ -90,6 +101,8 @@ export default function RecycleBin() {
         <AlertTriangle size={18} className="shrink-0 text-copper" />
         <div className="text-[11px] text-mutedfg">Permanent delete removes the row from the database — it cannot be restored afterwards.</div>
       </div>
+
+      {detail && <RecordDialog {...detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { api, fmtRs, fmtNum, today, daysAgo } from '../lib/api';
 import { downloadCSV } from '../lib/csv';
 import { Button, Card, Dialog, Field, Input, Select, PageHeader, Badge, Empty, IconButton, StatCard, DateRange } from '../components/ui';
 import { Plus, Trash2, Download, Printer } from 'lucide-react';
+import { ClickableRow, rowAction, RecordDialog } from '../components/RecordDialog';
 
 export default function Payments() {
   const [rows, setRows] = useState([]);
@@ -12,6 +13,7 @@ export default function Payments() {
   const [to, setTo] = useState(today());
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(null);
+  const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
 
   const load = () => api.get(`/payments?from=${from}&to=${to}`).then(setRows).catch((e) => setError(e.message));
@@ -88,7 +90,7 @@ export default function Payments() {
               <thead><tr><th>Date</th><th>Party</th><th>Type</th><th>Method</th><th>Reference</th><th className="text-right">Amount</th><th>Cash</th><th></th></tr></thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id}>
+                  <ClickableRow key={r.id} onOpen={() => setDetail(r)}>
                     <td className="num text-mutedfg">{r.date}</td>
                     <td className="font-semibold">{r.party_name}</td>
                     <td><Badge tone={r.party_type === 'customer' ? 'active' : 'partial'}>{r.party_type}</Badge></td>
@@ -100,8 +102,8 @@ export default function Payments() {
                         {r.direction === 'in' ? 'IN' : 'OUT'}
                       </span>
                     </td>
-                    <td><IconButton onClick={() => remove(r)}><Trash2 size={14} /></IconButton></td>
-                  </tr>
+                    <td><IconButton onClick={rowAction(() => remove(r))}><Trash2 size={14} /></IconButton></td>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>
@@ -141,6 +143,23 @@ export default function Payments() {
             </div>
           </form>
         </Dialog>
+      )}
+
+      {detail && (
+        <RecordDialog
+          title={`Payment — ${detail.party_name}`}
+          subtitle={`${detail.date} · ${detail.direction === 'in' ? 'Receipt in' : 'Payment out'}`}
+          onClose={() => setDetail(null)}
+          fields={[
+            ['Date', detail.date],
+            ['Party', detail.party_name],
+            ['Type', detail.party_type],
+            ['Cash', detail.direction === 'in' ? 'IN' : 'OUT'],
+            ['Amount', fmtRs(detail.amount)],
+            ['Method', detail.method],
+            ['Reference', detail.reference],
+          ]}
+        />
       )}
     </div>
   );

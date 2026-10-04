@@ -4,6 +4,7 @@ import { api, fmtRs, daysAgo, today } from '../lib/api';
 import { downloadCSV } from '../lib/csv';
 import { Button, Card, Dialog, Field, Input, Select, PageHeader, Empty, IconButton, DateRange } from '../components/ui';
 import { Plus, Trash2, Pencil, Download, Printer, Wallet } from 'lucide-react';
+import { rowAction } from '../components/RecordDialog';
 
 /** Big colour-filled totals card used at the top of the cash book */
 function CashStat({ label, value, tone }) {
@@ -40,7 +41,8 @@ function RoznamchaGroup({ title, tone, rows, total, hint, onEdit, onRemove }) {
       ) : (
         <div className="divide-y divide-borderc border-t border-borderc">
           {rows.map((r) => (
-            <div key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
+            <div key={r.id} onClick={() => onEdit(r)} title="Click to open this entry"
+              className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/60">
               <div className="min-w-0">
                 <div className="font-heading text-[14px] font-bold">{r.party || r.description || r.source}</div>
                 <div className="truncate text-[11px] text-mutedfg">
@@ -48,8 +50,8 @@ function RoznamchaGroup({ title, tone, rows, total, hint, onEdit, onRemove }) {
                 </div>
               </div>
               <div className="flex shrink-0 gap-1">
-                <IconButton onClick={() => onEdit(r)} title="Edit"><Pencil size={13} /></IconButton>
-                <IconButton onClick={() => onRemove(r)} title="Delete"><Trash2 size={13} /></IconButton>
+                <IconButton onClick={rowAction(() => onEdit(r))} title="Edit"><Pencil size={13} /></IconButton>
+                <IconButton onClick={rowAction(() => onRemove(r))} title="Delete"><Trash2 size={13} /></IconButton>
               </div>
             </div>
           ))}

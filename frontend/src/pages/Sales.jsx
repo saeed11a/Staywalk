@@ -3,12 +3,14 @@ import { api, fmtRs, fmtNum, today, daysAgo } from '../lib/api';
 import { downloadCSV } from '../lib/csv';
 import { Button, Card, PageHeader, Empty, Badge, StatCard, DateRange } from '../components/ui';
 import { Download, Printer } from 'lucide-react';
+import { ClickableRow, RecordDialog } from '../components/RecordDialog';
 
 export default function Sales() {
   const [rows, setRows] = useState([]);
   const [headers, setHeaders] = useState([]);
   const [from, setFrom] = useState(daysAgo(30));
   const [to, setTo] = useState(today());
+  const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -57,7 +59,16 @@ export default function Sales() {
               <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Article</th><th className="text-right">Cartons × pairs</th><th className="text-right">Pairs</th><th className="text-right">Rate</th><th className="text-right">Amount</th></tr></thead>
               <tbody>
                 {rows.map((r, i) => (
-                  <tr key={i}>
+                  <ClickableRow key={i} onOpen={() => setDetail({
+                    title: `Sale — ${r.invoice_no}`,
+                    subtitle: `${r.date} · ${r.customer_name}`,
+                    fields: [
+                      ['Invoice', r.invoice_no], ['Date', r.date], ['Customer', r.customer_name],
+                      ['Article', `${r.article_code} — ${r.article_name}`],
+                      ['Cartons', fmtNum(r.cartons)], ['Pairs per carton', fmtNum(r.pairs_per_carton)],
+                      ['Pairs', fmtNum(r.pairs)], ['Rate', fmtRs(r.rate)], ['Amount', fmtRs(r.amount)],
+                    ],
+                  })}>
                     <td className="num font-semibold">{r.invoice_no}</td>
                     <td className="num text-mutedfg">{r.date}</td>
                     <td>{r.customer_name}</td>
@@ -69,13 +80,15 @@ export default function Sales() {
                     <td className="num text-right font-semibold">{fmtNum(r.pairs)}</td>
                     <td className="num text-right">{fmtRs(r.rate)}</td>
                     <td className="num text-right font-bold">{fmtRs(r.amount)}</td>
-                  </tr>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>
           </div>
         )}
       </Card>
+
+      {detail && <RecordDialog {...detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }
