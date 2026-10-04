@@ -17,7 +17,6 @@ router.use('/payments', require('./cashbook'));
 router.use('/roznamcha', require('./cashbook'));
 router.use('/kharcha', require('./cashbook'));
 router.use('/dashboard', require('./dashboard'));
-router.use('/reports', require('./reports'));
 router.use('/recycle-bin', require('./recyclebin'));
 
 module.exports = router;
