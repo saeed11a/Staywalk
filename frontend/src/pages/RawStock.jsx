@@ -3,6 +3,7 @@ import { api, fmtRs, fmtNum, today } from '../lib/api';
 import { Button, Card, Dialog, Field, Input, Select, PageHeader, Badge, Empty, IconButton, StatCard } from '../components/ui';
 import { Pencil, Trash2, Plus, Layers, FlaskConical, Package, Hexagon, Boxes, Download, Printer } from 'lucide-react';
 import { downloadCSV } from '../lib/csv';
+import { BAG_SIZES, isBag } from '../lib/packs';
 
 const ICONS = { uppers: Layers, chemicals: FlaskConical, 'sole-sheets': Hexagon, laces: Package };
 const BUILT_IN = ['uppers', 'chemicals', 'laces', 'sole-sheets'];
@@ -197,8 +198,19 @@ export default function RawStock() {
                 </Select>
               </Field>
               <Field label="Article code"><Input name="article_code" defaultValue={editing.article_code} placeholder="HSF-001" /></Field>
-              <Field label="Pack type"><Input name="pack_type" defaultValue={editing.pack_type} placeholder="bag" /></Field>
-              <Field label="Pairs per pack"><Input name="pairs_per_pack" type="number" step="any" min="0" defaultValue={editing.pairs_per_pack} placeholder="auto → total pairs" /></Field>
+              <Field label="Pack type"><Input name="pack_type" value={editing.pack_type} placeholder="bag"
+                onChange={(e) => setEditing({ ...editing, pack_type: e.target.value, pairs_per_pack: isBag(e.target.value) ? (editing.pairs_per_pack || BAG_SIZES[0]) : editing.pairs_per_pack })} /></Field>
+              <Field label={isBag(editing.pack_type) ? 'Bag size' : 'Pairs per pack'}>
+                {isBag(editing.pack_type) ? (
+                  <Select name="pairs_per_pack" value={editing.pairs_per_pack || BAG_SIZES[0]}
+                    onChange={(e) => setEditing({ ...editing, pairs_per_pack: e.target.value })}>
+                    {[...new Set([...BAG_SIZES, Number(editing.pairs_per_pack) || 0])].filter((n) => n > 0).sort((a, b) => a - b)
+                      .map((n) => <option key={n} value={n}>{n}-pair bag</option>)}
+                  </Select>
+                ) : (
+                  <Input name="pairs_per_pack" type="number" step="any" min="0" defaultValue={editing.pairs_per_pack} placeholder="auto → total pairs" />
+                )}
+              </Field>
               <Field label="Quantity *"><Input name="quantity" type="number" step="any" min="0" defaultValue={editing.quantity} required /></Field>
               <Field label="Unit"><Input name="unit" defaultValue={editing.unit} placeholder="bags" /></Field>
               <Field label="Unit price (Rs)"><Input name="unit_price" type="number" step="any" min="0" defaultValue={editing.unit_price} /></Field>

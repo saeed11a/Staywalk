@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, fmtRs, fmtNum, today, daysAgo } from '../lib/api';
 import { downloadCSV } from '../lib/csv';
+import { BAG_SIZES, isBag } from '../lib/packs';
 import { Button, Card, Dialog, Field, Input, Select, PageHeader, Empty, IconButton, StatCard, DateRange } from '../components/ui';
 import { Plus, Trash2, Download, Printer } from 'lucide-react';
 
@@ -21,10 +22,13 @@ export default function Purchase() {
     api.get('/raw-categories').then(setCats).catch(() => {});
   }, [from, to]);
 
-  const open = () => setForm({
-    supplier_id: suppliers[0]?.id, item: '', category_slug: 'uppers', pack_type: 'bag',
-    pairs_per_pack: 12, quantity: '', unit_price: '', date: today(),
-  });
+  const open = () => {
+    setForm({
+      supplier_id: suppliers[0]?.id, item: '', category_slug: 'uppers', pack_type: 'bag',
+      pairs_per_pack: BAG_SIZES[0], quantity: '', unit_price: '', date: today(),
+    });
+    setCreating(true);
+  };
 
   const totalPairs = (Number(form?.quantity) || 0) * (Number(form?.pairs_per_pack) || 0);
   const amount = (Number(form?.quantity) || 0) * (Number(form?.unit_price) || 0);
@@ -123,9 +127,19 @@ export default function Purchase() {
                   {cats.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
                 </Select>
               </Field>
-              <Field label="Pack type"><Input name="pack_type" defaultValue={form.pack_type} /></Field>
-              <Field label="Pairs per pack"><Input name="pairs_per_pack" type="number" step="any" min="0" value={form.pairs_per_pack}
-                onChange={(e) => setForm({ ...form, pairs_per_pack: e.target.value })} /></Field>
+              <Field label="Pack type"><Input name="pack_type" value={form.pack_type}
+                onChange={(e) => setForm({ ...form, pack_type: e.target.value, pairs_per_pack: isBag(e.target.value) ? (form.pairs_per_pack || BAG_SIZES[0]) : form.pairs_per_pack })} /></Field>
+              <Field label={isBag(form.pack_type) ? 'Bag size' : 'Pairs per pack'}>
+                {isBag(form.pack_type) ? (
+                  <Select name="pairs_per_pack" value={form.pairs_per_pack || BAG_SIZES[0]}
+                    onChange={(e) => setForm({ ...form, pairs_per_pack: e.target.value })}>
+                    {BAG_SIZES.map((n) => <option key={n} value={n}>{n}-pair bag</option>)}
+                  </Select>
+                ) : (
+                  <Input name="pairs_per_pack" type="number" step="any" min="0" value={form.pairs_per_pack}
+                    onChange={(e) => setForm({ ...form, pairs_per_pack: e.target.value })} />
+                )}
+              </Field>
               <Field label="Quantity *"><Input name="quantity" type="number" step="any" min="0" value={form.quantity}
                 onChange={(e) => setForm({ ...form, quantity: e.target.value })} required /></Field>
               <Field label="Unit price (Rs)"><Input name="unit_price" type="number" step="any" min="0" value={form.unit_price}

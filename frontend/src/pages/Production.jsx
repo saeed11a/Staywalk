@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, fmtNum, today, daysAgo } from '../lib/api';
 import { downloadCSV } from '../lib/csv';
+import { BAG_SIZES } from '../lib/packs';
 import { Button, Card, Dialog, Field, Input, Select, PageHeader, Empty, IconButton, StatCard, DateRange } from '../components/ui';
 import { Plus, Trash2, Download, Printer } from 'lucide-react';
 
@@ -21,11 +22,14 @@ export default function Production() {
     api.get('/settings').then(setSettings);
   }, [from, to]);
 
-  const open = () => setForm({
-    article_id: articles[0]?.id, date: today(), line: 'Line A', shift: 'Morning', operator: '',
-    input_bags: '', pairs_per_bag: settings?.pairs_per_bag || 12,
-    carton_type: '', pairs_per_carton: settings?.pairs_per_carton || 24, output_cartons: '',
-  });
+  const open = () => {
+    setForm({
+      article_id: articles[0]?.id, date: today(), line: 'Line A', shift: 'Morning', operator: '',
+      input_bags: '', pairs_per_bag: BAG_SIZES.includes(Number(settings?.pairs_per_bag)) ? Number(settings.pairs_per_bag) : BAG_SIZES[0],
+      carton_type: '', pairs_per_carton: settings?.pairs_per_carton || 24, output_cartons: '',
+    });
+    setCreating(true);
+  };
 
   const uppersUsed = (Number(form?.input_bags) || 0) * (Number(form?.pairs_per_bag) || 0);
   const outputPairs = (Number(form?.output_cartons) || 0) * (Number(form?.pairs_per_carton) || 0);
@@ -128,8 +132,12 @@ export default function Production() {
               <Field label="Operator"><Input name="operator" defaultValue={form.operator} /></Field>
               <Field label="Input bags (uppers)"><Input name="input_bags" type="number" step="any" min="0" value={form.input_bags}
                 onChange={(e) => setForm({ ...form, input_bags: e.target.value })} required /></Field>
-              <Field label="Pairs per bag"><Input name="pairs_per_bag" type="number" step="any" min="0" value={form.pairs_per_bag}
-                onChange={(e) => setForm({ ...form, pairs_per_bag: e.target.value })} /></Field>
+              <Field label="Bag size">
+                <Select name="pairs_per_bag" value={form.pairs_per_bag}
+                  onChange={(e) => setForm({ ...form, pairs_per_bag: e.target.value })}>
+                  {BAG_SIZES.map((n) => <option key={n} value={n}>{n}-pair bag</option>)}
+                </Select>
+              </Field>
               <Field label="Carton type"><Input name="carton_type" defaultValue={form.carton_type} placeholder="Export 24" /></Field>
               <Field label="Pairs per carton"><Input name="pairs_per_carton" type="number" step="any" min="0" value={form.pairs_per_carton}
                 onChange={(e) => setForm({ ...form, pairs_per_carton: e.target.value })} /></Field>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Button, Card, Field, Input, Textarea, PageHeader } from '../components/ui';
+import { Button, Card, Field, Input, Select, Textarea, PageHeader } from '../components/ui';
+import { BAG_SIZES } from '../lib/packs';
 import { Save } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -61,12 +62,15 @@ export default function SettingsPage() {
               <Input type="number" min="0" step="any" value={s.opening_cash} onChange={(e) => set('opening_cash', e.target.value)} />
               <p className="mt-1 text-[11px] text-mutedfg">Starting balance of the roznamcha</p>
             </Field>
-            <Field label="Default pairs per bag"><Input type="number" min="0" value={s.pairs_per_bag} onChange={(e) => set('pairs_per_bag', e.target.value)} /></Field>
+            <Field label="Default bag size">
+              <Select value={s.pairs_per_bag} onChange={(e) => set('pairs_per_bag', e.target.value)}>
+                {BAG_SIZES.map((n) => <option key={n} value={n}>{n}-pair bag</option>)}
+              </Select>
+            </Field>
             <Field label="Default pairs per carton"><Input type="number" min="0" value={s.pairs_per_carton} onChange={(e) => set('pairs_per_carton', e.target.value)} /></Field>
           </div>
           <p className="px-4 pb-4 text-[11px] text-mutedfg">
-            Packing options in the forms follow these defaults: {s.pairs_per_bag} / {Number(s.pairs_per_bag) + 50 || 150}-pair bags for uppers
-            and 12 / 18 / {s.pairs_per_carton}-pair cartons for ready shoes.
+            Uppers bags are packed 100 or 150 pairs; ready shoes follow 12 / 18 / {s.pairs_per_carton}-pair cartons.
           </p>
         </Card>
 
