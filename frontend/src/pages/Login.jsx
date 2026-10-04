@@ -27,7 +27,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-bg p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-navy text-copper"><Footprints size={28} /></div>
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-white"><Footprints size={28} /></div>
           <h1 className="text-xl font-extrabold">HIKER Shoes Factory</h1>
           <p className="microlabel">ERP Login</p>
         </div>
@@ -58,9 +58,9 @@ export default function Login() {
           </button>
           <div className="mt-4 text-center text-xs text-mutedfg">
             {mode === 'login' ? (
-              <>New user? <button className="font-semibold text-copper" onClick={() => setMode('register')}>Create an account</button></>
+              <>New user? <button className="font-semibold text-accent" onClick={() => setMode('register')}>Create an account</button></>
             ) : (
-              <>Already registered? <button className="font-semibold text-copper" onClick={() => setMode('login')}>Sign in</button></>
+              <>Already registered? <button className="font-semibold text-accent" onClick={() => setMode('login')}>Sign in</button></>
             )}
           </div>
           <div className="mt-4 rounded-lg bg-muted px-3 py-2 text-center text-[11px] text-mutedfg">

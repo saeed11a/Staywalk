@@ -9,8 +9,23 @@ function nextCode() {
   return 'HSF-' + String(last + 1).padStart(3, '0');
 }
 
+// Articles with live stock and sales figures derived from the other modules
+const LIST_SQL = `
+  SELECT a.*,
+    (SELECT COALESCE(SUM(rs.quantity), 0) FROM raw_stock rs
+      WHERE rs.is_deleted = 0 AND rs.category_slug = 'uppers' AND rs.article_code = a.code) AS uppers_bags,
+    (SELECT COALESCE(SUM(rs.total_pairs), 0) FROM raw_stock rs
+      WHERE rs.is_deleted = 0 AND rs.category_slug = 'uppers' AND rs.article_code = a.code) AS uppers_pairs,
+    (SELECT COALESCE(SUM(r.pairs), 0) FROM ready_shoes r
+      WHERE r.is_deleted = 0 AND r.article_id = a.id) AS ready_pairs,
+    (SELECT COALESCE(SUM(il.pairs), 0) FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id
+      WHERE i.is_deleted = 0 AND il.article_id = a.id) AS sold,
+    (SELECT COALESCE(SUM(il.amount), 0) FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id
+      WHERE i.is_deleted = 0 AND il.article_id = a.id) AS sales_value
+  FROM articles a WHERE a.is_deleted = 0 ORDER BY a.code`;
+
 router.get('/', (req, res) => {
-  res.json(db.prepare('SELECT * FROM articles WHERE is_deleted = 0 ORDER BY code').all());
+  res.json(db.prepare(LIST_SQL).all());
 });
 
 router.post('/', (req, res) => {

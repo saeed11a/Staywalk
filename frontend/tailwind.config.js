@@ -14,6 +14,8 @@ export default {
         navy: 'hsl(var(--navy))',
         copper: 'hsl(var(--copper))',
         teal: 'hsl(var(--teal))',
+        ink: 'hsl(var(--ink))',
+        accent: 'hsl(var(--accent))',
         copperlight: 'hsl(var(--copper) / 0.12)',
       },
       fontFamily: {

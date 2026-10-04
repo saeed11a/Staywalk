@@ -11,8 +11,12 @@ function tableFor(path) {
 router.get('/', (req, res) => {
   const t = tableFor(req.baseUrl);
   const rows = db.prepare(`SELECT * FROM ${t} WHERE is_deleted = 0 ORDER BY name`).all();
+  const docs = t === 'customers'
+    ? db.prepare('SELECT COUNT(*) AS c FROM invoices WHERE customer_id = ? AND is_deleted = 0')
+    : db.prepare('SELECT COUNT(*) AS c FROM purchases WHERE supplier_id = ? AND is_deleted = 0');
   for (const row of rows) {
     row.balance = ledgerBalance(t, row);
+    row.doc_count = docs.get(row.id).c;
   }
   res.json(rows);
 });

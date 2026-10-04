@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react';
-import { api, fmtRs, daysAgo, today } from '../lib/api';
-import { Button, Card, Dialog, Field, Input, Select, PageHeader, Badge, Empty, IconButton } from '../components/ui';
-import { Plus, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { api, fmtRs, fmtNum, daysAgo, today } from '../lib/api';
+import { downloadCSV } from '../lib/csv';
+import { Button, Card, Dialog, Field, Input, Select, PageHeader, Badge, Empty, IconButton, StatCard, DateRange } from '../components/ui';
+import { Plus, Trash2, Download, Printer, Wallet } from 'lucide-react';
 
 export default function Roznamcha() {
   const [rows, setRows] = useState([]);
+  const [dashboard, setDashboard] = useState(null);
   const [from, setFrom] = useState(daysAgo(30));
   const [to, setTo] = useState(today());
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const load = () => {
     api.get(`/roznamcha?from=${from}&to=${to}`).then(setRows).catch((e) => setError(e.message));
+    api.get('/dashboard').then(setDashboard).catch(() => {});
   };
   useEffect(() => { load(); }, [from, to]);
 
@@ -32,43 +37,67 @@ export default function Roznamcha() {
     load();
   };
 
-  const totalIn = rows.filter((r) => r.direction === 'in').reduce((s, r) => s + r.amount, 0);
-  const totalOut = rows.filter((r) => r.direction === 'out').reduce((s, r) => s + r.amount, 0);
+  const totalIn = rows.filter((r) => r.direction === 'in').reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const totalOut = rows.filter((r) => r.direction === 'out').reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const kharcha = rows.filter((r) => r.source === 'kharcha').reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
   return (
     <div>
-      <PageHeader title="Roznamcha" actions={
-        <>
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="!w-36" />
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="!w-36" />
-          <Button onClick={() => setCreating(true)}><Plus size={15} /> Add entry</Button>
-        </>
-      } />
+      <PageHeader
+        label="Cash book"
+        title="Roznamcha"
+        description="Cash in hand, amounts received from customers, other income, supplier payments and daily expenses — with the remaining balance."
+        actions={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => downloadCSV('roznamcha.csv',
+              ['Date', 'Direction', 'Source', 'Party', 'Description', 'Category', 'Amount', 'Method'],
+              rows.map((r) => [r.date, r.direction, r.source, r.party, r.description, r.category, r.amount, r.method]))}>
+              <Download size={13} /> Excel / CSV
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => window.print()}><Printer size={13} /> PDF / Print</Button>
+            <Button variant="secondary" onClick={() => navigate('/payments')}><Wallet size={15} /> Record payment</Button>
+            <Button onClick={() => setCreating(true)}><Plus size={15} /> New entry</Button>
+          </>
+        }
+      />
       {error && <div className="mb-3 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">{error}</div>}
 
-      <div className="mb-3 grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-borderc bg-card p-3"><div className="microlabel">Cash in</div><div className="num font-bold text-emerald-700">{fmtRs(totalIn)}</div></div>
-        <div className="rounded-xl border border-borderc bg-card p-3"><div className="microlabel">Cash out</div><div className="num font-bold text-red-600">{fmtRs(totalOut)}</div></div>
-        <div className="rounded-xl border border-borderc bg-card p-3"><div className="microlabel">Net</div><div className="num font-bold">{fmtRs(totalIn - totalOut)}</div></div>
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Total in" value={fmtRs(totalIn)} accent="teal" />
+        <StatCard label="Total out" value={fmtRs(totalOut)} accent="copper" />
+        <StatCard label="Kharcha included" value={fmtRs(kharcha)} sub="Daily expenses paid" accent="ink" />
+        <StatCard
+          label="Remaining balance"
+          value={fmtRs(dashboard?.cash ?? totalIn - totalOut)}
+          sub={`Opening ${fmtRs(dashboard?.opening_cash ?? 0)}`}
+          accent="copper"
+        />
       </div>
 
-      <Card>
+      <DateRange from={from} setFrom={setFrom} to={to} setTo={setTo} onClear={() => { setFrom(daysAgo(30)); setTo(today()); }} />
+
+      <Card title={`Cash book — ${fmtNum(rows.length)} entries`}>
         {rows.length === 0 ? <Empty>No entries in this date range.</Empty> : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Date</th><th>Direction</th><th>Source</th><th>Party</th><th>Description</th><th>Category</th><th className="text-right">Amount</th><th>Method</th><th>Reference</th><th></th></tr></thead>
+              <thead><tr><th>Date</th><th>Particulars</th><th>Party</th><th>Method</th><th>Category</th><th className="text-right">Amount</th><th></th></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
                     <td className="num text-mutedfg">{r.date}</td>
-                    <td><Badge tone={r.direction}>{r.direction === 'in' ? 'in' : 'out'}</Badge></td>
-                    <td><Badge tone="copper">{r.source}</Badge></td>
+                    <td>
+                      <div className="font-semibold">{r.description || r.source}</div>
+                      <div className="text-[11px] text-mutedfg">
+                        {r.source}
+                        {r.reference ? ` · ${r.reference}` : ''}
+                      </div>
+                    </td>
                     <td>{r.party || '—'}</td>
-                    <td>{r.description || '—'}</td>
-                    <td className="text-mutedfg">{r.category || '—'}</td>
-                    <td className={`num text-right font-bold ${r.direction === 'in' ? 'text-emerald-700' : 'text-red-600'}`}>{fmtRs(r.amount)}</td>
                     <td className="text-mutedfg">{r.method || '—'}</td>
-                    <td className="text-mutedfg">{r.reference || '—'}</td>
+                    <td className="text-mutedfg">{r.category || '—'}</td>
+                    <td className={`num text-right font-bold ${r.direction === 'in' ? 'text-emerald-700' : 'text-red-600'}`}>
+                      {r.direction === 'in' ? '' : '−'}{fmtRs(r.amount)}
+                    </td>
                     <td><IconButton onClick={() => remove(r)}><Trash2 size={14} /></IconButton></td>
                   </tr>
                 ))}

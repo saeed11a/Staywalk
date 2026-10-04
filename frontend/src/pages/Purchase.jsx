@@ -1,22 +1,25 @@
 import { useEffect, useState } from 'react';
-import { api, fmtRs, fmtNum, today } from '../lib/api';
-import { Button, Card, Dialog, Field, Input, Select, PageHeader, Badge, Empty, IconButton } from '../components/ui';
-import { Plus, Trash2 } from 'lucide-react';
+import { api, fmtRs, fmtNum, today, daysAgo } from '../lib/api';
+import { downloadCSV } from '../lib/csv';
+import { Button, Card, Dialog, Field, Input, Select, PageHeader, Empty, IconButton, StatCard, DateRange } from '../components/ui';
+import { Plus, Trash2, Download, Printer } from 'lucide-react';
 
 export default function Purchase() {
   const [rows, setRows] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [cats, setCats] = useState([]);
+  const [from, setFrom] = useState(daysAgo(30));
+  const [to, setTo] = useState(today());
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(null);
   const [error, setError] = useState('');
 
-  const load = () => api.get('/purchases').then(setRows).catch((e) => setError(e.message));
+  const load = () => api.get(`/purchases?from=${from}&to=${to}`).then(setRows).catch((e) => setError(e.message));
   useEffect(() => {
     load();
     api.get('/suppliers').then(setSuppliers).catch(() => {});
     api.get('/raw-categories').then(setCats).catch(() => {});
-  }, []);
+  }, [from, to]);
 
   const open = () => setForm({
     supplier_id: suppliers[0]?.id, item: '', category_slug: 'uppers', pack_type: 'bag',
@@ -44,25 +47,55 @@ export default function Purchase() {
     load();
   };
 
+  const value = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const pairsReceived = rows.reduce((s, r) => s + (Number(r.total_pairs) || 0), 0);
+  const supplierCount = new Set(rows.map((r) => r.supplier_id)).size;
+
   return (
     <div>
-      <PageHeader title="Purchase" actions={<Button onClick={open}><Plus size={15} /> New purchase</Button>} />
+      <PageHeader
+        label="Procurement"
+        title="Purchases"
+        description="Every raw material purchase increases stock and credits the supplier's kata."
+        actions={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => downloadCSV('purchases.csv',
+              ['Date', 'Supplier', 'Item', 'Category', 'Quantity', 'Pairs', 'Rate', 'Amount'],
+              rows.map((r) => [r.date, r.supplier_name, r.item, r.category_slug, r.quantity, r.total_pairs, r.unit_price, r.amount]))}>
+              <Download size={13} /> Excel / CSV
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => window.print()}><Printer size={13} /> PDF / Print</Button>
+            <Button onClick={open}><Plus size={15} /> New purchase</Button>
+          </>
+        }
+      />
       {error && <div className="mb-3 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">{error}</div>}
-      <Card>
-        {rows.length === 0 ? <Empty>No purchases yet.</Empty> : (
+
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Purchases" value={fmtNum(rows.length)} accent="copper" />
+        <StatCard label="Purchase value" value={fmtRs(value)} accent="teal" />
+        <StatCard label="Pairs received" value={`${fmtNum(pairsReceived)} prs`} accent="ink" />
+        <StatCard label="Suppliers" value={fmtNum(supplierCount)} accent="copper" />
+      </div>
+
+      <DateRange from={from} setFrom={setFrom} to={to} setTo={setTo} onClear={() => { setFrom(daysAgo(30)); setTo(today()); }} />
+
+      <Card title="Purchase entries">
+        {rows.length === 0 ? <Empty>No purchases in this date range.</Empty> : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Date</th><th>Supplier</th><th>Item</th><th>Category</th><th className="text-right">Qty</th><th className="text-right">Pairs/pack</th><th className="text-right">Total pairs</th><th className="text-right">Unit price</th><th className="text-right">Amount</th><th></th></tr></thead>
+              <thead><tr><th>Date</th><th>Item</th><th>Supplier</th><th className="text-right">Quantity</th><th className="text-right">Pairs</th><th className="text-right">Rate</th><th className="text-right">Amount</th><th></th></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
                     <td className="num text-mutedfg">{r.date}</td>
-                    <td className="font-semibold">{r.supplier_name}</td>
-                    <td>{r.item}</td>
-                    <td><Badge tone="copper">{r.category_slug}</Badge></td>
-                    <td className="num text-right">{fmtNum(r.quantity)}</td>
-                    <td className="num text-right">{fmtNum(r.pairs_per_pack)}</td>
-                    <td className="num text-right font-bold">{fmtNum(r.total_pairs)}</td>
+                    <td>
+                      <div className="font-semibold">{r.item}</div>
+                      <div className="text-[11px] text-mutedfg">{r.category_slug}{r.article_code ? ` · ${r.article_code}` : ''}</div>
+                    </td>
+                    <td>{r.supplier_name}</td>
+                    <td className="num text-right">{fmtNum(r.quantity)} {r.pack_type || ''}</td>
+                    <td className="num text-right">{r.total_pairs ? fmtNum(r.total_pairs) : '—'}</td>
                     <td className="num text-right">{fmtRs(r.unit_price)}</td>
                     <td className="num text-right font-bold">{fmtRs(r.amount)}</td>
                     <td><IconButton onClick={() => remove(r)}><Trash2 size={14} /></IconButton></td>

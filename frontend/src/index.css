@@ -3,25 +3,28 @@
 @tailwind utilities;
 
 :root {
-  --bg: 40 24% 97%;
+  --bg: 0 0% 97.6%;
   --card: 0 0% 100%;
-  --borderc: 30 12% 88%;
-  --fg: 222 28% 12%;
-  --muted: 40 18% 93%;
+  --borderc: 0 0% 90%;
+  --fg: 0 0% 7%;
+  --muted: 0 0% 95.5%;
   --mutedfg: 220 9% 46%;
-  --navy: 222 28% 12%;
-  --copper: 26 62% 47%;
-  --teal: 173 80% 30%;
+  --navy: 215 21% 11%;
+  --copper: 27 42% 49%;
+  --accent: 32 95% 44%;
+  --ink: 0 0% 10%;
+  --teal: 172 79% 23%;
 }
 
 .dark {
-  --bg: 222 25% 8%;
-  --card: 222 22% 12%;
-  --borderc: 220 14% 22%;
-  --fg: 40 20% 96%;
-  --muted: 222 20% 16%;
-  --mutedfg: 220 10% 65%;
-  --navy: 222 28% 10%;
+  --bg: 215 21% 9%;
+  --card: 215 18% 13%;
+  --borderc: 215 12% 24%;
+  --fg: 0 0% 96%;
+  --muted: 215 16% 17%;
+  --mutedfg: 215 10% 65%;
+  --navy: 215 21% 7%;
+  --ink: 0 0% 22%;
 }
 
 body {
@@ -37,6 +40,11 @@ h1, h2, h3 {
   @apply text-[11px] font-heading font-bold uppercase tracking-wider text-mutedfg;
 }
 
+/* Accent bar that sits before a section label */
+.barred {
+  @apply border-l-2 border-teal pl-2;
+}
+
 /* Number columns */
 .num {
   @apply font-mono text-[13px];
@@ -44,9 +52,10 @@ h1, h2, h3 {
 
 /* Tables */
 .tbl { @apply w-full text-sm; }
-.tbl thead th { @apply microlabel text-left px-3 py-2 border-b-2 border-borderc whitespace-nowrap; }
+.tbl thead th { @apply microlabel bg-muted/70 text-left px-3 py-2.5 border-b border-borderc whitespace-nowrap; }
 .tbl tbody td { @apply px-3 py-2.5 border-b border-borderc/70 align-middle; }
-.tbl tbody tr:hover { @apply bg-muted/60; }
+.tbl tbody tr:last-child td { @apply border-b-0; }
+.tbl tbody tr:hover { @apply bg-muted/50; }
 
 /* Print: only the invoice sheet */
 @media print {

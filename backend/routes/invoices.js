@@ -5,12 +5,28 @@ const router = express.Router();
 
 router.get('/', (req, res) => {
   const { from, to } = req.query;
-  const rows = db.prepare(`
+  const range = from && to ? 'AND i.date BETWEEN ? AND ?' : '';
+  const rangeArgs = from && to ? [from, to] : [];
+
+  // Item-level detail — one row per invoice line (used by the Sales report)
+  if (req.query.items) {
+    return res.json(db.prepare(`
+      SELECT i.invoice_no, i.date, i.customer_id, c.name AS customer_name, i.status,
+             a.code AS article_code, a.name AS article_name,
+             il.carton_type, il.pairs_per_carton, il.cartons, il.pairs, il.rate, il.amount
+      FROM invoice_lines il
+      JOIN invoices i ON i.id = il.invoice_id
+      JOIN customers c ON c.id = i.customer_id
+      JOIN articles a ON a.id = il.article_id
+      WHERE i.is_deleted = 0 ${range}
+      ORDER BY i.date DESC, i.id DESC`).all(...rangeArgs));
+  }
+
+  res.json(db.prepare(`
     SELECT i.*, c.name AS customer_name FROM invoices i
     JOIN customers c ON c.id = i.customer_id
-    WHERE i.is_deleted = 0 ${from && to ? 'AND i.date BETWEEN ? AND ?' : ''}
-    ORDER BY i.date DESC, i.id DESC`).all(...(from && to ? [from, to] : []));
-  res.json(rows);
+    WHERE i.is_deleted = 0 ${range}
+    ORDER BY i.date DESC, i.id DESC`).all(...rangeArgs));
 });
 
 router.get('/:id', (req, res) => {

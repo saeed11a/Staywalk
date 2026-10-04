@@ -4,10 +4,12 @@ const { recordPurchase, httpError } = require('../lib/stock-ops');
 const router = express.Router();
 
 router.get('/', (req, res) => {
+  const { from, to } = req.query;
   res.json(db.prepare(`
     SELECT p.*, s.name AS supplier_name FROM purchases p
     JOIN suppliers s ON s.id = p.supplier_id
-    WHERE p.is_deleted = 0 ORDER BY p.date DESC, p.id DESC`).all());
+    WHERE p.is_deleted = 0 ${from && to ? 'AND p.date BETWEEN ? AND ?' : ''}
+    ORDER BY p.date DESC, p.id DESC`).all(...(from && to ? [from, to] : [])));
 });
 
 router.post('/', (req, res) => {

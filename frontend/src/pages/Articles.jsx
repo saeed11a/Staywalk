@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { api, fmtRs } from '../lib/api';
-import { Button, Card, Dialog, Field, Input, Select, PageHeader, Badge, Empty, IconButton } from '../components/ui';
-import { Pencil, Trash2, Plus } from 'lucide-react';
+import { api, fmtRs, fmtNum } from '../lib/api';
+import { downloadCSV } from '../lib/csv';
+import { Button, Card, Dialog, Field, Input, Select, PageHeader, Badge, Empty, IconButton, StatCard } from '../components/ui';
+import { Pencil, Trash2, Plus, RefreshCw, Download, Printer } from 'lucide-react';
 
 const BLANK = { name: '', category: '', sizes: '', colors: '', upper_type: '', sole_type: '', cost_price: '', selling_price: '', status: 'active' };
 
@@ -36,32 +37,66 @@ export default function Articles() {
   const filtered = rows.filter((r) =>
     [r.code, r.name, r.category].join(' ').toLowerCase().includes(q.toLowerCase()));
 
+  const uppersAvailable = rows.reduce((s, r) => s + r.uppers_pairs, 0);
+  const readyPairs = rows.reduce((s, r) => s + r.ready_pairs, 0);
+  const pairsSold = rows.reduce((s, r) => s + r.sold, 0);
+  const salesValue = rows.reduce((s, r) => s + r.sales_value, 0);
+
   return (
     <div>
-      <PageHeader title="Articles" actions={
-        <>
-          <Input placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} className="!w-48" />
-          <Button onClick={() => setEditing({ ...BLANK })}><Plus size={15} /> Add article</Button>
-        </>
-      } />
+      <PageHeader
+        label="Master data"
+        title="Articles"
+        description="Article numbers are created automatically, with stock, production and sales quantities kept in sync as the factory works."
+        actions={
+          <>
+            <Input placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} className="!w-40" />
+            <Button variant="secondary" size="sm" onClick={load}><RefreshCw size={13} /> Sync now</Button>
+            <Button variant="secondary" size="sm" onClick={() => downloadCSV('articles.csv',
+              ['Code', 'Name', 'Category', 'Uppers bags', 'Uppers pairs', 'Ready pairs', 'Sold', 'Sales value', 'Status'],
+              filtered.map((r) => [r.code, r.name, r.category, r.uppers_bags, r.uppers_pairs, r.ready_pairs, r.sold, r.sales_value, r.status]))}>
+              <Download size={13} /> Excel / CSV
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => window.print()}><Printer size={13} /> PDF / Print</Button>
+            <Button onClick={() => setEditing({ ...BLANK })}><Plus size={15} /> New article</Button>
+          </>
+        }
+      />
+
       {error && <div className="mb-3 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">{error}</div>}
-      <Card>
-        {filtered.length === 0 ? <Empty>No articles yet — create your first shoe model.</Empty> : (
+
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Articles" value={fmtNum(rows.length)} accent="copper" />
+        <StatCard label="Uppers available" value={`${fmtNum(uppersAvailable)} prs`} accent="teal" />
+        <StatCard label="Ready pairs" value={`${fmtNum(readyPairs)} prs`} accent="ink" />
+        <StatCard label="Pairs sold" value={`${fmtNum(pairsSold)} prs`} sub={fmtRs(salesValue)} accent="copper" />
+      </div>
+
+      <Card title="All articles">
+        {filtered.length === 0 ? (
+          <Empty title="No articles yet">Create your first shoe model to start stock, production and sales.</Empty>
+        ) : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Sizes</th><th>Colors</th><th>Upper</th><th>Sole</th><th className="text-right">Cost</th><th className="text-right">Price</th><th>Status</th><th></th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Article no.</th><th>Category</th><th className="text-right">Uppers bags</th>
+                  <th className="text-right">Uppers pairs</th><th className="text-right">Ready pairs</th>
+                  <th className="text-right">Sold</th><th>Status</th><th></th>
+                </tr>
+              </thead>
               <tbody>
                 {filtered.map((r) => (
                   <tr key={r.id}>
-                    <td className="num font-semibold">{r.code}</td>
-                    <td>{r.name}</td>
+                    <td>
+                      <div className="num font-semibold">{r.code}</div>
+                      <div className="text-[11px] text-mutedfg">{r.name}</div>
+                    </td>
                     <td className="text-mutedfg">{r.category || '—'}</td>
-                    <td className="num">{r.sizes || '—'}</td>
-                    <td className="text-mutedfg">{r.colors || '—'}</td>
-                    <td className="text-mutedfg">{r.upper_type || '—'}</td>
-                    <td className="text-mutedfg">{r.sole_type || '—'}</td>
-                    <td className="num text-right">{fmtRs(r.cost_price)}</td>
-                    <td className="num text-right font-semibold">{fmtRs(r.selling_price)}</td>
+                    <td className="num text-right">{r.uppers_bags ? fmtNum(r.uppers_bags) : '—'}</td>
+                    <td className="num text-right">{r.uppers_pairs ? fmtNum(r.uppers_pairs) : '—'}</td>
+                    <td className="num text-right">{r.ready_pairs ? fmtNum(r.ready_pairs) : '—'}</td>
+                    <td className="num text-right">{r.sold ? fmtNum(r.sold) : '—'}</td>
                     <td><Badge tone={r.status === 'active' ? 'active' : 'inactive'}>{r.status}</Badge></td>
                     <td className="whitespace-nowrap">
                       <IconButton onClick={() => setEditing(r)}><Pencil size={14} /></IconButton>

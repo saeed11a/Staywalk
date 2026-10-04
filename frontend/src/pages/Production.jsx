@@ -1,23 +1,25 @@
 import { useEffect, useState } from 'react';
-import { api, fmtNum, today } from '../lib/api';
-import { Button, Card, Dialog, Field, Input, Select, PageHeader, Empty, IconButton } from '../components/ui';
-import { Plus, Trash2 } from 'lucide-react';
+import { api, fmtNum, today, daysAgo } from '../lib/api';
+import { downloadCSV } from '../lib/csv';
+import { Button, Card, Dialog, Field, Input, Select, PageHeader, Empty, IconButton, StatCard, DateRange } from '../components/ui';
+import { Plus, Trash2, Download, Printer } from 'lucide-react';
 
 export default function Production() {
   const [rows, setRows] = useState([]);
   const [articles, setArticles] = useState([]);
-  const [employees, setEmployees] = useState(null);
   const [settings, setSettings] = useState(null);
+  const [from, setFrom] = useState(daysAgo(30));
+  const [to, setTo] = useState(today());
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(null);
   const [error, setError] = useState('');
 
-  const load = () => api.get('/production').then(setRows).catch((e) => setError(e.message));
+  const load = () => api.get(`/production?from=${from}&to=${to}`).then(setRows).catch((e) => setError(e.message));
   useEffect(() => {
     load();
     api.get('/articles').then(setArticles);
     api.get('/settings').then(setSettings);
-  }, []);
+  }, [from, to]);
 
   const open = () => setForm({
     article_id: articles[0]?.id, date: today(), line: 'Line A', shift: 'Morning', operator: '',
@@ -46,28 +48,60 @@ export default function Production() {
     load();
   };
 
+  const bags = rows.reduce((s, r) => s + (Number(r.input_bags) || 0), 0);
+  const uppersIssued = rows.reduce((s, r) => s + (Number(r.uppers_used) || 0), 0);
+  const cartons = rows.reduce((s, r) => s + (Number(r.output_cartons) || 0), 0);
+  const produced = rows.reduce((s, r) => s + (Number(r.output_pairs) || 0), 0);
+  const yieldPct = uppersIssued ? Math.round((produced / uppersIssued) * 100) : 0;
+
   return (
     <div>
-      <PageHeader title="Production" actions={<Button onClick={open}><Plus size={15} /> New entry</Button>} />
+      <PageHeader
+        label="Shop floor"
+        title="Production"
+        description="Issue uppers for an article, receive the ready cartons — uppers stock falls and Ready Shoes rises automatically."
+        actions={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => downloadCSV('production.csv',
+              ['Date', 'Article', 'Bags', 'Pairs/bag', 'Uppers used', 'Carton size', 'Cartons', 'Pairs produced', 'Line', 'Shift', 'Operator'],
+              rows.map((r) => [r.date, r.article_code, r.input_bags, r.pairs_per_bag, r.uppers_used, r.carton_type, r.output_cartons, r.output_pairs, r.line, r.shift, r.operator]))}>
+              <Download size={13} /> Excel / CSV
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => window.print()}><Printer size={13} /> PDF / Print</Button>
+            <Button onClick={open}><Plus size={15} /> New production</Button>
+          </>
+        }
+      />
       {error && <div className="mb-3 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">{error}</div>}
-      <Card>
-        {rows.length === 0 ? <Empty>No production entries yet.</Empty> : (
+
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Production runs" value={fmtNum(rows.length)} accent="copper" />
+        <StatCard label="Uppers issued" value={`${fmtNum(uppersIssued)} prs`} sub={`${fmtNum(bags)} bag(s)`} accent="teal" />
+        <StatCard label="Pairs produced" value={`${fmtNum(produced)} prs`} sub={`${fmtNum(cartons)} carton(s)`} accent="ink" />
+        <StatCard label="Yield" value={`${yieldPct}%`} sub="Produced vs uppers issued" accent="copper" />
+      </div>
+
+      <DateRange from={from} setFrom={setFrom} to={to} setTo={setTo} onClear={() => { setFrom(daysAgo(30)); setTo(today()); }} />
+
+      <Card title="Production entries">
+        {rows.length === 0 ? <Empty>No production entries in this date range.</Empty> : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Date</th><th>Article</th><th>Line / Shift</th><th>Operator</th><th className="text-right">Bags</th><th className="text-right">Pairs/bag</th><th className="text-right">Uppers used</th><th>Carton type</th><th className="text-right">Cartons out</th><th className="text-right">Pairs out</th><th></th></tr></thead>
+              <thead><tr><th>Article</th><th>Date</th><th className="text-right">Uppers bags</th><th className="text-right">Uppers used</th><th>Carton size</th><th className="text-right">Cartons</th><th className="text-right">Pairs produced</th><th>Line / shift</th><th></th></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
+                    <td>
+                      <div className="num font-semibold">{r.article_code}</div>
+                      <div className="text-[11px] text-mutedfg">{r.article_name}</div>
+                    </td>
                     <td className="num text-mutedfg">{r.date}</td>
-                    <td className="font-semibold">{r.article_code} <span className="text-mutedfg">{r.article_name}</span></td>
-                    <td className="text-mutedfg">{r.line || '—'} · {r.shift || '—'}</td>
-                    <td>{r.operator || '—'}</td>
                     <td className="num text-right">{fmtNum(r.input_bags)}</td>
-                    <td className="num text-right">{fmtNum(r.pairs_per_bag)}</td>
                     <td className="num text-right font-semibold text-red-600">−{fmtNum(r.uppers_used)}</td>
                     <td className="text-mutedfg">{r.carton_type || '—'}</td>
                     <td className="num text-right">{fmtNum(r.output_cartons)}</td>
                     <td className="num text-right font-bold text-emerald-700">+{fmtNum(r.output_pairs)}</td>
+                    <td className="text-mutedfg">{r.line || '—'} · {r.shift || '—'}</td>
                     <td><IconButton onClick={() => remove(r)}><Trash2 size={14} /></IconButton></td>
                   </tr>
                 ))}

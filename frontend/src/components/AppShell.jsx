@@ -40,17 +40,19 @@ const NAV = [
 function SidebarContent({ company, onNavigate }) {
   return (
     <>
-      <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-copper font-heading text-lg font-extrabold text-white">H</div>
+      <div className="flex items-center gap-3 px-5 py-5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-white">
+          <Footprints size={20} />
+        </div>
         <div className="min-w-0">
           <div className="truncate font-heading text-[15px] font-extrabold text-white">{company}</div>
-          <div className="microlabel !text-white/50">Shoes Factory ERP</div>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-white/45">Shoes Factory ERP</div>
         </div>
       </div>
-      <nav className="flex-1 overflow-y-auto px-3 py-3">
+      <nav className="flex-1 overflow-y-auto px-3 pb-3">
         {NAV.map((g) => (
           <div key={g.group} className="mb-4">
-            <div className="microlabel px-2 !text-white/40">{g.group}</div>
+            <div className="px-2 text-[10px] font-bold uppercase tracking-wider text-white/35">{g.group}</div>
             {g.items.map((item) => (
               <NavLink
                 key={item.to}
@@ -59,7 +61,7 @@ function SidebarContent({ company, onNavigate }) {
                 onClick={onNavigate}
                 className={({ isActive }) =>
                   `mt-0.5 flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors ${
-                    isActive ? 'bg-copper text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'}`
+                    isActive ? 'bg-accent text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'}`
                 }
               >
                 <item.icon size={16} strokeWidth={2.2} />
@@ -69,13 +71,18 @@ function SidebarContent({ company, onNavigate }) {
           </div>
         ))}
       </nav>
+      <div className="m-3 rounded-xl bg-white/5 p-3.5">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-white/40">Automatic postings</div>
+        <div className="mt-1 text-[12px] font-bold text-white">Stock · Kata · Roznamcha</div>
+        <div className="mt-1 text-[11px] leading-snug text-white/45">Production, purchases, invoices and payments update every module.</div>
+      </div>
     </>
   );
 }
 
 export default function AppShell() {
   const { user, logout } = useAuth();
-  const [company, setCompany] = useState('HIKER Shoes');
+  const [company, setCompany] = useState('HIKER Shoes Factory');
   const [drawer, setDrawer] = useState(false);
   const [dark, setDark] = useState(() => localStorage.getItem('hiker_theme') === 'dark');
   const location = useLocation();
@@ -91,42 +98,73 @@ export default function AppShell() {
 
   useEffect(() => setDrawer(false), [location.pathname]);
 
+  const name = user?.name || 'Admin';
+  const initial = (name[0] || 'A').toUpperCase();
+
   return (
-    <div className="flex min-h-screen">
-      {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-navy md:flex">
-        <SidebarContent company={company} />
-        <div className="border-t border-white/10 px-5 py-3 text-[12px] text-white/50">{user?.email}</div>
-      </aside>
+    <div className="min-h-screen bg-bg">
+      <div className="mx-auto flex w-full max-w-[1280px]">
+        {/* Desktop sidebar */}
+        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-navy md:flex">
+          <SidebarContent company={company} />
+        </aside>
 
-      {/* Mobile drawer */}
-      {drawer && (
-        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setDrawer(false)}>
-          <div className="absolute inset-0 bg-navy/60 backdrop-blur-sm" />
-          <aside className="absolute left-0 top-0 flex h-full w-64 flex-col bg-navy" onClick={(e) => e.stopPropagation()}>
-            <SidebarContent company={company} onNavigate={() => setDrawer(false)} />
-          </aside>
-        </div>
-      )}
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="no-print sticky top-0 z-30 flex h-12 items-center justify-between border-b border-borderc bg-card/90 px-4 backdrop-blur">
-          <button className="flex items-center gap-2 text-mutedfg md:hidden" onClick={() => setDrawer(true)}>
-            <Menu size={20} />
-          </button>
-          <div className="hidden md:block" />
-          <div className="flex items-center gap-1">
-            <button className="flex h-8 w-8 items-center justify-center rounded-lg text-mutedfg hover:bg-muted hover:text-fg" onClick={() => setDark(!dark)} title="Toggle theme">
-              {dark ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-            <button className="flex h-8 w-8 items-center justify-center rounded-lg text-mutedfg hover:bg-muted hover:text-fg" onClick={logout} title="Sign out">
-              <LogOut size={16} />
-            </button>
+        {/* Mobile drawer */}
+        {drawer && (
+          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setDrawer(false)}>
+            <div className="absolute inset-0 bg-black/50" />
+            <aside className="absolute left-0 top-0 flex h-full w-64 flex-col bg-navy" onClick={(e) => e.stopPropagation()}>
+              <button className="absolute right-3 top-3 text-white/70 hover:text-white" onClick={() => setDrawer(false)} aria-label="Close menu">
+                <X size={18} />
+              </button>
+              <SidebarContent company={company} onNavigate={() => setDrawer(false)} />
+            </aside>
           </div>
-        </header>
-        <main className="min-w-0 flex-1 p-4 md:p-6">
-          <Outlet />
-        </main>
+        )}
+
+        <div className="min-w-0 flex-1 p-3 md:p-4">
+          <div className="overflow-hidden rounded-2xl border border-borderc bg-card shadow-card">
+            <header className="no-print flex h-12 items-center justify-between gap-3 border-b border-borderc px-3 md:px-5">
+              <div className="flex min-w-0 items-center gap-2">
+                <button className="flex items-center text-mutedfg md:hidden" onClick={() => setDrawer(true)} aria-label="Open menu">
+                  <Menu size={20} />
+                </button>
+                <span className="truncate text-[10px] font-bold uppercase tracking-[0.18em] text-mutedfg">Manufacturing Control</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-mutedfg hover:bg-muted hover:text-fg"
+                  onClick={() => setDark(!dark)}
+                  title="Toggle dark mode"
+                >
+                  {dark ? <Sun size={16} /> : <Moon size={16} />}
+                </button>
+                <div className="flex items-center gap-2 rounded-full border border-borderc px-2 py-1">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink text-[11px] font-bold text-white">{initial}</span>
+                  <div className="hidden leading-tight sm:block">
+                    <div className="max-w-[130px] truncate text-[11px] font-semibold">{name}</div>
+                    <div className="text-[9px] font-bold uppercase tracking-wider text-mutedfg">Admin</div>
+                  </div>
+                </div>
+                <button
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-mutedfg hover:bg-muted hover:text-fg"
+                  onClick={logout}
+                  title="Sign out"
+                >
+                  <LogOut size={16} />
+                </button>
+              </div>
+            </header>
+
+            <main className="min-w-0 p-4 md:p-6">
+              <Outlet />
+            </main>
+
+            <footer className="border-t border-borderc px-4 py-3 text-center text-[11px] text-mutedfg">
+              {company} ERP · Stock · Production · Sales · Accounts
+            </footer>
+          </div>
+        </div>
       </div>
     </div>
   );
