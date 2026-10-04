@@ -12,7 +12,17 @@
 - Sandbox repo root can be mode 700 — if containers can't read mounted files, run `chmod o+rx .`.
 
 ## Modules
-Dashboard, Orders (with line items + invoice generation), Customers, Products, Production (work orders), Inventory (materials with stock adjustments + history), Invoices (payments, status auto-updates), Employees.
+Overview: Dashboard (KPIs, sales chart, stock alerts). Stock: Raw Stock (categories with custom fields), Ready Shoes (balance + movements), Articles. Production: Production, Purchase. Sales: Invoices + New Invoice (live teal preview), Sales, Customers. Accounts: Suppliers, Payments, Roznamcha, Kharcha. System: Reports (CSV/print), Settings, Recycle Bin (restore/purge).
+
+## Auth
+Email/password login (scrypt hashes, Bearer token sessions). Seeded account: `admin@hiker.pk` / `admin123`. Google OAuth button exists but needs credentials — not configured.
+
+## Stock automations (backend/lib/stock-ops.js — all atomic)
+- Production deducts uppers from Raw Stock (newest first) and adds pairs to Ready Shoes; refuses if short.
+- Purchase adds into Raw Stock and raises supplier payable.
+- Invoice converts cartons→pairs, checks Ready Shoes stock (refuses if short), deducts it, and any received amount auto-creates a Payment + Roznamcha customer_receipt entry.
+- Payments auto-post to Roznamcha and party ledger; Kharcha posts as source kharcha.
+- Every table uses soft delete (`is_deleted`, `deleted_date`); Recycle Bin restores or purges.
 
 ## Desktop/Android builds (.exe / .apk)
 - `desktop/` — Electron wrapper; loads `APP_URL` (env var or `app-url.txt` baked at build time).

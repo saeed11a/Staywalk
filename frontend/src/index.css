@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 40 24% 97%;
+  --card: 0 0% 100%;
+  --borderc: 30 12% 88%;
+  --fg: 222 28% 12%;
+  --muted: 40 18% 93%;
+  --mutedfg: 220 9% 46%;
+  --navy: 222 28% 12%;
+  --copper: 26 62% 47%;
+  --teal: 173 80% 30%;
+}
+
+.dark {
+  --bg: 222 25% 8%;
+  --card: 222 22% 12%;
+  --borderc: 220 14% 22%;
+  --fg: 40 20% 96%;
+  --muted: 222 20% 16%;
+  --mutedfg: 220 10% 65%;
+  --navy: 222 28% 10%;
+}
+
+body {
+  @apply bg-bg text-fg font-body antialiased;
+}
+
+h1, h2, h3 {
+  @apply font-heading;
+}
+
+/* Micro-labels */
+.microlabel {
+  @apply text-[11px] font-heading font-bold uppercase tracking-wider text-mutedfg;
+}
+
+/* Number columns */
+.num {
+  @apply font-mono text-[13px];
+}
+
+/* Tables */
+.tbl { @apply w-full text-sm; }
+.tbl thead th { @apply microlabel text-left px-3 py-2 border-b-2 border-borderc whitespace-nowrap; }
+.tbl tbody td { @apply px-3 py-2.5 border-b border-borderc/70 align-middle; }
+.tbl tbody tr:hover { @apply bg-muted/60; }
+
+/* Print: only the invoice sheet */
+@media print {
+  body { background: white !important; }
+  .no-print { display: none !important; }
+  .print-sheet { box-shadow: none !important; margin: 0 !important; }
+  @page { size: A4; margin: 0; }
+}

@@ -1,38 +1,31 @@
 const express = require('express');
-const db = require('../db');
+const { db } = require('../db');
+const { recordProduction, httpError } = require('../lib/stock-ops');
 const router = express.Router();
-
-const PRODUCTION_STATUSES = ['queued', 'in_progress', 'done'];
 
 router.get('/', (req, res) => {
   res.json(db.prepare(`
-    SELECT pr.*, p.name AS product_name, p.code AS product_code, e.name AS employee_name
-    FROM production pr
-    JOIN products p ON p.id = pr.product_id
-    LEFT JOIN employees e ON e.id = pr.assigned_to
-    ORDER BY CASE pr.status WHEN 'in_progress' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, pr.id DESC`).all());
+    SELECT pe.*, a.code AS article_code, a.name AS article_name
+    FROM production_entries pe JOIN articles a ON a.id = pe.article_id
+    WHERE pe.is_deleted = 0 ORDER BY pe.date DESC, pe.id DESC`).all());
 });
 
 router.post('/', (req, res) => {
-  const { product_id, qty, assigned_to, start_date, due_date } = req.body;
-  if (!product_id || !Number(qty) || Number(qty) <= 0) {
-    return res.status(400).json({ error: 'Product and a positive quantity are required' });
-  }
-  const info = db.prepare(
-    'INSERT INTO production (product_id, qty, assigned_to, start_date, due_date) VALUES (?,?,?,?,?)'
-  ).run(product_id, Number(qty), assigned_to || null, start_date || null, due_date || null);
-  res.status(201).json({ id: info.lastInsertRowid });
-});
-
-router.put('/:id', (req, res) => {
-  const { status } = req.body;
-  if (!PRODUCTION_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status' });
-  db.prepare('UPDATE production SET status=? WHERE id=?').run(status, req.params.id);
-  res.json({ ok: true });
+  const d = req.body;
+  if (!d.article_id) throw httpError(400, 'Article is required');
+  const id = recordProduction({
+    article_id: d.article_id,
+    date: d.date || new Date().toISOString().slice(0, 10),
+    line: d.line || '', shift: d.shift || '', operator: d.operator || '',
+    input_bags: Number(d.input_bags) || 0, pairs_per_bag: Number(d.pairs_per_bag) || 0,
+    carton_type: d.carton_type || '', pairs_per_carton: Number(d.pairs_per_carton) || 0,
+    output_cartons: Number(d.output_cartons) || 0,
+  });
+  res.status(201).json({ id });
 });
 
 router.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM production WHERE id=?').run(req.params.id);
+  db.prepare("UPDATE production_entries SET is_deleted = 1, deleted_date = datetime('now') WHERE id = ?").run(req.params.id);
   res.json({ ok: true });
 });
 

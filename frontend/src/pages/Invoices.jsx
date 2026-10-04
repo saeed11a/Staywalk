@@ -1,157 +1,89 @@
 import { useEffect, useState } from 'react';
-import { api, rs } from '../lib/api';
-import Modal from '../components/Modal';
+import { Link, useNavigate } from 'react-router-dom';
+import { api, fmtRs, fmtNum } from '../lib/api';
+import { Button, Card, Dialog, PageHeader, Badge, Empty, IconButton } from '../components/ui';
+import { Plus, Trash2, Printer } from 'lucide-react';
 
 export default function Invoices() {
   const [rows, setRows] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [creating, setCreating] = useState(false);
-  const [paying, setPaying] = useState(null); // invoice being paid
-  const [viewing, setViewing] = useState(null); // invoice payments history
+  const [viewing, setViewing] = useState(null);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const load = () => api.get('/invoices').then(setRows).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
 
-  const openCreate = async () => {
-    const all = await api.get('/orders');
-    setOrders(all.filter((o) => o.invoice_count === 0));
-    setCreating(true);
+  const view = async (row) => {
+    setViewing(await api.get('/invoices/' + row.id));
   };
 
-  const create = async (e) => {
-    e.preventDefault();
-    const raw = Object.fromEntries(new FormData(e.target).entries());
-    try {
-      await api.post('/invoices', { order_id: Number(raw.order_id), due_date: raw.due_date || null });
-      setCreating(false);
-      load();
-    } catch (err) { setError(err.message); }
-  };
-
-  const pay = async (e) => {
-    e.preventDefault();
-    const raw = Object.fromEntries(new FormData(e.target).entries());
-    try {
-      await api.post('/invoices/' + paying.id + '/payments', { amount: Number(raw.amount), method: raw.method });
-      setPaying(null);
-      load();
-    } catch (err) { setError(err.message); }
-  };
-
-  const remove = async (inv) => {
-    if (!confirm('Delete ' + inv.invoice_no + '? Payments will also be deleted.')) return;
-    await api.del('/invoices/' + inv.id);
+  const remove = async (row) => {
+    if (!confirm(`Move invoice ${row.invoice_no} to the recycle bin?`)) return;
+    await api.del('/invoices/' + row.id);
     load();
-  };
-
-  const showPayments = async (inv) => {
-    setViewing({ invoice: inv, payments: await api.get('/invoices/' + inv.id + '/payments') });
   };
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Invoices</h1>
-        <button className="btn" onClick={openCreate}>+ New invoice</button>
-      </div>
-      {error && <div className="error-banner">{error}</div>}
-      <div className="card">
-        {rows.length === 0 ? <div className="empty">No invoices yet</div> : (
-          <table className="table">
-            <thead><tr><th>Invoice #</th><th>Customer</th><th>Issued</th><th>Due</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-              {rows.map((inv) => (
-                <tr key={inv.id}>
-                  <td>{inv.invoice_no}</td>
-                  <td>{inv.customer_name}</td>
-                  <td>{inv.issue_date}</td>
-                  <td>{inv.due_date || '—'}</td>
-                  <td>{rs(inv.total)}</td>
-                  <td>{rs(inv.paid)}</td>
-                  <td>{rs(inv.total - inv.paid)}</td>
-                  <td><span className={'badge ' + inv.status}>{inv.status}</span></td>
-                  <td>
-                    <button className="btn btn-sm" onClick={() => setPaying(inv)}>Payment</button>{' '}
-                    <button className="btn btn-secondary btn-sm" onClick={() => showPayments(inv)}>History</button>{' '}
-                    <button className="btn btn-danger btn-sm" onClick={() => remove(inv)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {creating && (
-        <Modal title="New invoice" onClose={() => setCreating(false)}>
-          <form onSubmit={create}>
-            <div className="form-group"><label>Order *</label>
-              <select name="order_id" required defaultValue={orders[0]?.id || ''}>
-                {orders.length === 0 && <option value="">No uninvoiced orders</option>}
-                {orders.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    #{o.id} — {o.customer_name} ({rs(o.total)})
-                  </option>
+      <PageHeader title="Invoices" actions={
+        <Button onClick={() => navigate('/invoices/new')}><Plus size={15} /> New invoice</Button>
+      } />
+      {error && <div className="mb-3 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">{error}</div>}
+      <Card>
+        {rows.length === 0 ? <Empty>No invoices yet — create your first sale.</Empty> : (
+          <div className="overflow-x-auto">
+            <table className="tbl">
+              <thead><tr><th>Invoice #</th><th>Customer</th><th>Date</th><th className="text-right">Cartons</th><th className="text-right">Pairs</th><th className="text-right">Total</th><th className="text-right">Received</th><th className="text-right">Balance</th><th>Method</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <td className="num font-semibold">
+                      <a href="#" onClick={(e) => { e.preventDefault(); view(r); }} className="text-copper hover:underline">{r.invoice_no}</a>
+                    </td>
+                    <td>{r.customer_name}</td>
+                    <td className="num text-mutedfg">{r.date}</td>
+                    <td className="num text-right">{fmtNum(r.total_cartons)}</td>
+                    <td className="num text-right">{fmtNum(r.total_pairs)}</td>
+                    <td className="num text-right font-bold">{fmtRs(r.total)}</td>
+                    <td className="num text-right">{fmtRs(r.received)}</td>
+                    <td className="num text-right">{fmtRs(r.balance)}</td>
+                    <td className="text-mutedfg">{r.payment_method}</td>
+                    <td><Badge tone={r.status}>{r.status}</Badge></td>
+                    <td className="whitespace-nowrap">
+                      <Link to={`/invoices/${r.id}/print`} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-mutedfg hover:bg-muted hover:text-fg" title="Print"><Printer size={14} /></Link>
+                      <IconButton onClick={() => remove(r)}><Trash2 size={14} /></IconButton>
+                    </td>
+                  </tr>
                 ))}
-              </select>
-            </div>
-            <div className="form-group"><label>Due date</label>
-              <input name="due_date" type="date" /></div>
-            <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setCreating(false)}>Cancel</button>
-              <button className="btn" disabled={orders.length === 0}>Create</button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {paying && (
-        <Modal title={'Record payment — ' + paying.invoice_no} onClose={() => setPaying(null)}>
-          <form onSubmit={pay}>
-            <p style={{ marginTop: 0, color: '#64748b' }}>
-              Total {rs(paying.total)} · Paid {rs(paying.paid)} · Balance <strong>{rs(paying.total - paying.paid)}</strong>
-            </p>
-            <div className="form-row">
-              <div className="form-group"><label>Amount (Rs) *</label>
-                <input name="amount" type="number" min="0.01" step="any" required autoFocus
-                  defaultValue={Math.max(paying.total - paying.paid, 0)} /></div>
-              <div className="form-group"><label>Method</label>
-                <select name="method" defaultValue="cash">
-                  <option value="cash">cash</option>
-                  <option value="bank transfer">bank transfer</option>
-                  <option value="cheque">cheque</option>
-                  <option value="other">other</option>
-                </select>
-              </div>
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setPaying(null)}>Cancel</button>
-              <button className="btn">Record</button>
-            </div>
-          </form>
-        </Modal>
-      )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       {viewing && (
-        <Modal title={'Payments — ' + viewing.invoice.invoice_no} onClose={() => setViewing(null)}>
-          <div style={{ padding: 20 }}>
-            {viewing.payments.length === 0 ? <div className="empty">No payments recorded</div> : (
-              <table className="table">
-                <thead><tr><th>When</th><th>Amount</th><th>Method</th></tr></thead>
-                <tbody>
-                  {viewing.payments.map((p) => (
-                    <tr key={p.id}>
-                      <td>{p.paid_at}</td>
-                      <td>{rs(p.amount)}</td>
-                      <td>{p.method || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+        <Dialog title={`Invoice ${viewing.invoice_no}`} onClose={() => setViewing(null)} wide>
+          <div className="p-5">
+            <table className="tbl">
+              <thead><tr><th>Article</th><th>Carton type</th><th className="text-right">Cartons</th><th className="text-right">Pairs</th><th className="text-right">Rate</th><th className="text-right">Amount</th></tr></thead>
+              <tbody>
+                {viewing.lines.map((l) => (
+                  <tr key={l.id}>
+                    <td>{l.article_code} {l.article_name}</td>
+                    <td className="text-mutedfg">{l.carton_type || '—'}</td>
+                    <td className="num text-right">{l.cartons}</td>
+                    <td className="num text-right">{l.pairs}</td>
+                    <td className="num text-right">{fmtRs(l.rate)}</td>
+                    <td className="num text-right font-bold">{fmtRs(l.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="mt-3 flex justify-end gap-2">
+              <Link to={`/invoices/${viewing.id}/print`}><Button variant="secondary"><Printer size={14} /> Print</Button></Link>
+            </div>
           </div>
-        </Modal>
+        </Dialog>
       )}
     </div>
   );

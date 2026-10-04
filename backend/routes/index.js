@@ -1,13 +1,22 @@
 const express = require('express');
 const router = express.Router();
 
-router.use('/customers', require('./customers'));
-router.use('/products', require('./products'));
-router.use('/inventory', require('./inventory'));
-router.use('/employees', require('./employees'));
-router.use('/orders', require('./orders'));
+router.get('/me', (req, res) => res.json(req.user));
+router.use('/settings', require('./settings'));
+router.use('/articles', require('./articles'));
+const rawstock = require('./rawstock');
+router.use('/raw-categories', rawstock.categories);
+router.use('/raw-stock', rawstock.stock);
+router.use('/ready-shoes', require('./readyshoes'));
 router.use('/production', require('./production'));
+router.use('/purchases', require('./purchases'));
+router.use('/customers', require('./parties'));
+router.use('/suppliers', require('./parties'));
 router.use('/invoices', require('./invoices'));
+router.use('/payments', require('./cashbook'));
+router.use('/roznamcha', require('./cashbook'));
+router.use('/kharcha', require('./cashbook'));
 router.use('/dashboard', require('./dashboard'));
+router.use('/recycle-bin', require('./recyclebin'));
 
 module.exports = router;

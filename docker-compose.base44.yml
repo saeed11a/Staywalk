@@ -9,7 +9,7 @@ services:
       - api_data:/app/data
     environment:
       - PORT=4000
-      - DB_PATH=/app/data/hiker-erp.db
+      - DB_PATH=/app/data/hiker-shoes.db
     command: ["sh", "-ec", "npm install --no-audit --no-fund && exec node --watch server.js"]
     restart: on-failure
     healthcheck:

@@ -1,16 +1,19 @@
 const express = require('express');
-const routes = require('./routes');
+const auth = require('./middleware/auth');
+const { db } = require('./db');
 
 const app = express();
 app.use(express.json());
+
 app.get('/api/health', (req, res) => res.json({ ok: true }));
-app.use('/api', routes);
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api', auth, require('./routes'));
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: 'Server error' });
+  if (err && !err.status) console.error(err);
+  res.status((err && err.status) || 500).json({ error: err.message || 'Server error' });
 });
 
 const port = process.env.PORT || 4000;
-app.listen(port, () => console.log(`Hiker ERP API listening on ${port}`));
+app.listen(port, () => console.log(`HIKER Shoes Factory ERP API listening on ${port}`));
