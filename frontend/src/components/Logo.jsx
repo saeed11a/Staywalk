@@ -1,10 +1,8 @@
-// Brand mark used in the sidebar and login screen — stylised wordmark matching the HIKER+ Shoes box design.
-export default function Logo({ className = '', size = 16 }) {
+// Brand lockup used in the sidebar and login screen — HIKER+ Shoes logo mark.
+export default function Logo({ className = '' }) {
   return (
-    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink text-white ${className}`}>
-      <span className="font-heading font-black leading-none" style={{ fontSize: size }}>
-        H<sup style={{ fontSize: size * 0.56 }}>+</sup>
-      </span>
+    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white p-1 shadow-sm ${className}`}>
+      <img src="/hiker-logo.png" alt="HIKER+ Shoes Factory" className="h-full w-full object-contain" />
     </div>
   );
 }

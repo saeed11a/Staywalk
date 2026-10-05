@@ -27,7 +27,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-bg p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <Logo className="h-14 w-14 rounded-2xl" size={26} />
+          <Logo className="h-24 w-24 rounded-2xl p-2" />
           <h1 className="text-xl font-extrabold">HIKER Shoes Factory</h1>
           <p className="microlabel">ERP Login</p>
         </div>
