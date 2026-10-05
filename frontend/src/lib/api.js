@@ -6,7 +6,7 @@ export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
 
 async function request(method, url, body) {
   const token = getToken();
-  const res = await fetch('/api' + url, {
+  const res = await fetch('https://hiker-erp-api-production.up.railway.app/api' + url, {
     method,
     headers: {
       ...(body ? { 'Content-Type': 'application/json' } : {}),
