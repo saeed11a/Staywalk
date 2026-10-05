@@ -1,1 +1,47 @@
+name: Build Android .apk
 
+# Builds a Capacitor WebView wrapper of Hiker ERP.
+# Set the APP_URL repository variable (Settings > Secrets and variables > Actions)
+# to your deployed Hiker ERP web address before running.
+on:
+  workflow_dispatch:
+  push:
+    branches: [apk]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v4
+
+      - name: Build wrapper APK
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          mkdir -p build-apk && cd build-apk
+          npm init -y >/dev/null
+          npm install @capacitor/core @capacitor/cli @capacitor/android --no-audit --no-fund
+          node -e "const fs=require('fs');const url=process.env.APP_URL||'';const cfg={appId:'com.hikererp.app',appName:'Hiker ERP',webDir:'www'};if(url)cfg.server={url,androidScheme:'https'};fs.writeFileSync('capacitor.config.json',JSON.stringify(cfg,null,2))"
+          mkdir -p www
+          echo '<html><body style="font-family:sans-serif;padding:40px"><h1>Hiker ERP</h1><p>No APP_URL configured. Set the APP_URL GitHub repository variable and rebuild.</p></body></html>' > www/index.html
+          npx cap add android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: hiker-erp-android-apk
+          path: build-apk/android/app/build/outputs/apk/debug/*.apk
