@@ -61,6 +61,19 @@ router.post('/', (req, res) => {
   res.status(201).json({ id: info.lastInsertRowid });
 });
 
+router.put('/:id', (req, res) => {
+  const k = kind(req);
+  if (k !== 'roznamcha') throw httpError(400, 'Only roznamcha entries can be edited directly');
+  const d = req.body;
+  const row = db.prepare('SELECT * FROM roznamcha WHERE id = ? AND is_deleted = 0').get(req.params.id);
+  if (!row) throw httpError(404, 'Record not found');
+  db.prepare(`UPDATE roznamcha SET date=?, direction=?, source=?, party=?, description=?, category=?, amount=?, method=?, reference=? WHERE id=?`)
+    .run(d.date || row.date, d.direction === 'out' ? 'out' : 'in', d.source || row.source, d.party ?? row.party,
+      d.description ?? row.description, d.category ?? row.category, Number(d.amount) || row.amount,
+      d.method || row.method, d.reference ?? row.reference, row.id);
+  res.json({ ok: true });
+});
+
 router.delete('/:id', (req, res) => {
   const k = kind(req);
   const t = k === 'payments' ? 'payments' : k === 'roznamcha' ? 'roznamcha' : 'kharcha';

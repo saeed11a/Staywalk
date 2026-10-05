@@ -1,66 +1,94 @@
 import { useEffect, useState } from 'react';
-import { api, fmtRs } from '../lib/api';
+import { api, fmtRs, fmtNum, today, daysAgo } from '../lib/api';
 import { downloadCSV } from '../lib/csv';
-import { Button, Card, PageHeader, Empty, Badge } from '../components/ui';
-import { Download } from 'lucide-react';
+import { Button, Card, PageHeader, Empty, Badge, StatCard, DateRange } from '../components/ui';
+import { Download, Printer } from 'lucide-react';
+import { ClickableRow, RecordDialog } from '../components/RecordDialog';
 
 export default function Sales() {
   const [rows, setRows] = useState([]);
-  const [from, setFrom] = useState(() => new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10));
-  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [headers, setHeaders] = useState([]);
+  const [from, setFrom] = useState(daysAgo(30));
+  const [to, setTo] = useState(today());
+  const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get(`/invoices?from=${from}&to=${to}`).then(setRows).catch((e) => setError(e.message));
+    api.get(`/invoices?items=1&from=${from}&to=${to}`).then(setRows).catch((e) => setError(e.message));
+    api.get(`/invoices?from=${from}&to=${to}`).then(setHeaders).catch(() => {});
   }, [from, to]);
 
-  const total = rows.reduce((s, r) => s + r.total, 0);
-  const received = rows.reduce((s, r) => s + r.received, 0);
+  const invoiced = headers.reduce((s, r) => s + (Number(r.total) || 0), 0);
+  const received = headers.reduce((s, r) => s + (Number(r.received) || 0), 0);
+  const outstanding = headers.reduce((s, r) => s + (Number(r.balance) || 0), 0);
+  const pairsSold = rows.reduce((s, r) => s + (Number(r.pairs) || 0), 0);
+  const value = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
   return (
     <div>
-      <PageHeader title="Sales" actions={
-        <>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-9 rounded-lg border border-borderc bg-card px-3 text-sm" />
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-9 rounded-lg border border-borderc bg-card px-3 text-sm" />
-          <Button variant="secondary" onClick={() => downloadCSV('sales.csv',
-            ['Invoice', 'Date', 'Customer', 'Cartons', 'Pairs', 'Total', 'Received', 'Balance', 'Status'],
-            rows.map((r) => [r.invoice_no, r.date, r.customer_name, r.total_cartons, r.total_pairs, r.total, r.received, r.balance, r.status]))}>
-            <Download size={14} /> CSV
-          </Button>
-        </>
-      } />
+      <PageHeader
+        label="Sales"
+        title="All invoice details"
+        description="Every item sold, with the cartons, pairs and value — filtered by date."
+        actions={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => downloadCSV('sales.csv',
+              ['Invoice', 'Date', 'Customer', 'Article', 'Cartons', 'Pairs', 'Rate', 'Amount'],
+              rows.map((r) => [r.invoice_no, r.date, r.customer_name, `${r.article_code} ${r.article_name}`, r.cartons, r.pairs, r.rate, r.amount]))}>
+              <Download size={13} /> Excel / CSV
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => window.print()}><Printer size={13} /> PDF / Print</Button>
+          </>
+        }
+      />
       {error && <div className="mb-3 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">{error}</div>}
 
-      <div className="mb-3 grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-borderc bg-card p-3"><div className="microlabel">Invoices</div><div className="num font-bold">{rows.length}</div></div>
-        <div className="rounded-xl border border-borderc bg-card p-3"><div className="microlabel">Sales</div><div className="num font-bold">{fmtRs(total)}</div></div>
-        <div className="rounded-xl border border-borderc bg-card p-3"><div className="microlabel">Received</div><div className="num font-bold text-emerald-700">{fmtRs(received)}</div></div>
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Invoiced" value={fmtRs(invoiced)} sub={`${headers.length} invoice(s)`} accent="copper" />
+        <StatCard label="Received" value={fmtRs(received)} accent="teal" />
+        <StatCard label="Outstanding" value={fmtRs(outstanding)} sub="Balance on invoices" accent="ink" />
+        <StatCard label="Pairs sold" value={`${fmtNum(pairsSold)} prs`} sub={fmtRs(value)} accent="copper" />
       </div>
 
-      <Card>
+      <DateRange from={from} setFrom={setFrom} to={to} setTo={setTo} onClear={() => { setFrom(daysAgo(30)); setTo(today()); }} />
+
+      <Card title="Sold items">
         {rows.length === 0 ? <Empty>No sales in this date range.</Empty> : (
           <div className="overflow-x-auto">
             <table className="tbl">
-              <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th className="text-right">Cartons</th><th className="text-right">Pairs</th><th className="text-right">Total</th><th className="text-right">Balance</th><th>Status</th></tr></thead>
+              <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Article</th><th className="text-right">Cartons × pairs</th><th className="text-right">Pairs</th><th className="text-right">Rate</th><th className="text-right">Amount</th></tr></thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id}>
+                {rows.map((r, i) => (
+                  <ClickableRow key={i} onOpen={() => setDetail({
+                    title: `Sale — ${r.invoice_no}`,
+                    subtitle: `${r.date} · ${r.customer_name}`,
+                    fields: [
+                      ['Invoice', r.invoice_no], ['Date', r.date], ['Customer', r.customer_name],
+                      ['Article', `${r.article_code} — ${r.article_name}`],
+                      ['Cartons', fmtNum(r.cartons)], ['Pairs per carton', fmtNum(r.pairs_per_carton)],
+                      ['Pairs', fmtNum(r.pairs)], ['Rate', fmtRs(r.rate)], ['Amount', fmtRs(r.amount)],
+                    ],
+                  })}>
                     <td className="num font-semibold">{r.invoice_no}</td>
                     <td className="num text-mutedfg">{r.date}</td>
                     <td>{r.customer_name}</td>
-                    <td className="num text-right">{r.total_cartons}</td>
-                    <td className="num text-right">{r.total_pairs}</td>
-                    <td className="num text-right font-bold">{fmtRs(r.total)}</td>
-                    <td className="num text-right">{fmtRs(r.balance)}</td>
-                    <td><Badge tone={r.status}>{r.status}</Badge></td>
-                  </tr>
+                    <td>
+                      <div className="num font-semibold">{r.article_code}</div>
+                      <div className="text-[11px] text-mutedfg">{r.article_name}</div>
+                    </td>
+                    <td className="num text-right">{fmtNum(r.cartons)} × {fmtNum(r.pairs_per_carton)}</td>
+                    <td className="num text-right font-semibold">{fmtNum(r.pairs)}</td>
+                    <td className="num text-right">{fmtRs(r.rate)}</td>
+                    <td className="num text-right font-bold">{fmtRs(r.amount)}</td>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>
           </div>
         )}
       </Card>
+
+      {detail && <RecordDialog {...detail} onClose={() => setDetail(null)} />}
     </div>
   );
 }

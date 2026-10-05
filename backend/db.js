@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS settings (
   email TEXT DEFAULT '',
   invoice_prefix TEXT NOT NULL DEFAULT 'HSF',
   low_stock_threshold INTEGER NOT NULL DEFAULT 100,
-  pairs_per_bag INTEGER NOT NULL DEFAULT 12,
+  pairs_per_bag INTEGER NOT NULL DEFAULT 100,
   pairs_per_carton INTEGER NOT NULL DEFAULT 24,
   opening_cash REAL NOT NULL DEFAULT 0,
   bank_name TEXT DEFAULT '',

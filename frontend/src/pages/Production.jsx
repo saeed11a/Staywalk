@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { api, fmtNum, today } from '../lib/api';
 import { Button, Card, Dialog, Field, Input, Select, PageHeader, Empty, IconButton } from '../components/ui';
 import { Plus, Trash2 } from 'lucide-react';
+import { ClickableRow, rowAction, RecordDialog } from '../components/RecordDialog';
+import { BAG_SIZES } from '../lib/packs';
 
 export default function Production() {
   const [rows, setRows] = useState([]);
@@ -10,6 +12,7 @@ export default function Production() {
   const [settings, setSettings] = useState(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(null);
+  const [detail, setDetail] = useState(null);
   const [error, setError] = useState('');
 
   const load = () => api.get('/production').then(setRows).catch((e) => setError(e.message));
@@ -19,11 +22,16 @@ export default function Production() {
     api.get('/settings').then(setSettings);
   }, []);
 
-  const open = () => setForm({
-    article_id: articles[0]?.id, date: today(), line: 'Line A', shift: 'Morning', operator: '',
-    input_bags: '', pairs_per_bag: settings?.pairs_per_bag || 12,
-    carton_type: '', pairs_per_carton: settings?.pairs_per_carton || 24, output_cartons: '',
-  });
+  const defaultBag = BAG_SIZES.includes(Number(settings?.pairs_per_bag)) ? Number(settings.pairs_per_bag) : BAG_SIZES[0];
+
+  const open = () => {
+    setForm({
+      article_id: articles[0]?.id, date: today(), line: 'Line A', shift: 'Morning', operator: '',
+      input_bags: '', pairs_per_bag: defaultBag,
+      carton_type: '', pairs_per_carton: settings?.pairs_per_carton || 24, output_cartons: '',
+    });
+    setCreating(true);
+  };
 
   const uppersUsed = (Number(form?.input_bags) || 0) * (Number(form?.pairs_per_bag) || 0);
   const outputPairs = (Number(form?.output_cartons) || 0) * (Number(form?.pairs_per_carton) || 0);
@@ -57,7 +65,7 @@ export default function Production() {
               <thead><tr><th>Date</th><th>Article</th><th>Line / Shift</th><th>Operator</th><th className="text-right">Bags</th><th className="text-right">Pairs/bag</th><th className="text-right">Uppers used</th><th>Carton type</th><th className="text-right">Cartons out</th><th className="text-right">Pairs out</th><th></th></tr></thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id}>
+                  <ClickableRow key={r.id} onOpen={() => setDetail(r)}>
                     <td className="num text-mutedfg">{r.date}</td>
                     <td className="font-semibold">{r.article_code} <span className="text-mutedfg">{r.article_name}</span></td>
                     <td className="text-mutedfg">{r.line || '—'} · {r.shift || '—'}</td>
@@ -68,8 +76,8 @@ export default function Production() {
                     <td className="text-mutedfg">{r.carton_type || '—'}</td>
                     <td className="num text-right">{fmtNum(r.output_cartons)}</td>
                     <td className="num text-right font-bold text-emerald-700">+{fmtNum(r.output_pairs)}</td>
-                    <td><IconButton onClick={() => remove(r)}><Trash2 size={14} /></IconButton></td>
-                  </tr>
+                    <td><IconButton onClick={rowAction(() => remove(r))}><Trash2 size={14} /></IconButton></td>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>
@@ -94,8 +102,13 @@ export default function Production() {
               <Field label="Operator"><Input name="operator" defaultValue={form.operator} /></Field>
               <Field label="Input bags (uppers)"><Input name="input_bags" type="number" step="any" min="0" value={form.input_bags}
                 onChange={(e) => setForm({ ...form, input_bags: e.target.value })} required /></Field>
-              <Field label="Pairs per bag"><Input name="pairs_per_bag" type="number" step="any" min="0" value={form.pairs_per_bag}
-                onChange={(e) => setForm({ ...form, pairs_per_bag: e.target.value })} /></Field>
+              <Field label="Bag size">
+                <Select name="pairs_per_bag" value={form.pairs_per_bag || BAG_SIZES[0]}
+                  onChange={(e) => setForm({ ...form, pairs_per_bag: e.target.value })}>
+                  {[...new Set([...BAG_SIZES, Number(form.pairs_per_bag) || 0])].filter((n) => n > 0).sort((a, b) => a - b)
+                    .map((n) => <option key={n} value={n}>{n}-pair bag</option>)}
+                </Select>
+              </Field>
               <Field label="Carton type"><Input name="carton_type" defaultValue={form.carton_type} placeholder="Export 24" /></Field>
               <Field label="Pairs per carton"><Input name="pairs_per_carton" type="number" step="any" min="0" value={form.pairs_per_carton}
                 onChange={(e) => setForm({ ...form, pairs_per_carton: e.target.value })} /></Field>
@@ -113,6 +126,28 @@ export default function Production() {
             </div>
           </form>
         </Dialog>
+      )}
+
+      {detail && (
+        <RecordDialog
+          title={`Production — ${detail.article_code}`}
+          subtitle={`${detail.article_name || ''} · ${detail.date}`}
+          onClose={() => setDetail(null)}
+          fields={[
+            ['Date', detail.date],
+            ['Article', `${detail.article_code} — ${detail.article_name}`],
+            ['Line', detail.line],
+            ['Shift', detail.shift],
+            ['Operator', detail.operator],
+            ['Input bags', fmtNum(detail.input_bags)],
+            ['Bag size', detail.pairs_per_bag ? `${fmtNum(detail.pairs_per_bag)}-pair bag` : '—'],
+            ['Uppers used', `${fmtNum(detail.uppers_used)} prs`],
+            ['Carton type', detail.carton_type],
+            ['Pairs per carton', fmtNum(detail.pairs_per_carton)],
+            ['Output cartons', fmtNum(detail.output_cartons)],
+            ['Pairs produced', `${fmtNum(detail.output_pairs)} prs`],
+          ]}
+        />
       )}
     </div>
   );

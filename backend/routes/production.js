@@ -4,10 +4,12 @@ const { recordProduction, httpError } = require('../lib/stock-ops');
 const router = express.Router();
 
 router.get('/', (req, res) => {
+  const { from, to } = req.query;
   res.json(db.prepare(`
     SELECT pe.*, a.code AS article_code, a.name AS article_name
     FROM production_entries pe JOIN articles a ON a.id = pe.article_id
-    WHERE pe.is_deleted = 0 ORDER BY pe.date DESC, pe.id DESC`).all());
+    WHERE pe.is_deleted = 0 ${from && to ? 'AND pe.date BETWEEN ? AND ?' : ''}
+    ORDER BY pe.date DESC, pe.id DESC`).all(...(from && to ? [from, to] : [])));
 });
 
 router.post('/', (req, res) => {

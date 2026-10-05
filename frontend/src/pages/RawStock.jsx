@@ -1,23 +1,43 @@
 import { useEffect, useState } from 'react';
 import { api, fmtRs, fmtNum, today } from '../lib/api';
-import { Button, Card, Dialog, Field, Input, Select, PageHeader, Badge, Empty, IconButton } from '../components/ui';
-import { Pencil, Trash2, Plus } from 'lucide-react';
+import { Button, Card, Dialog, Field, Input, Select, PageHeader, Badge, Empty, IconButton, StatCard } from '../components/ui';
+import { Pencil, Trash2, Plus, Layers, FlaskConical, Package, Hexagon, Boxes, Download, Printer } from 'lucide-react';
+import { downloadCSV } from '../lib/csv';
+import { BAG_SIZES, isBag } from '../lib/packs';
+import { ClickableRow, rowAction } from '../components/RecordDialog';
+
+const ICONS = { uppers: Layers, chemicals: FlaskConical, 'sole-sheets': Hexagon, laces: Package };
+const BUILT_IN = ['uppers', 'chemicals', 'laces', 'sole-sheets'];
+const DESCRIPTIONS = {
+  uppers: 'Upper stock issued to production, entered in bags',
+  chemicals: 'Adhesives, solvents and finishing chemicals',
+  'sole-sheets': 'Rubber and TPR sole sheets',
+  laces: 'Laces, threads and trims',
+};
 
 export default function RawStock() {
   const [rows, setRows] = useState([]);
   const [cats, setCats] = useState([]);
   const [cat, setCat] = useState('');
   const [editing, setEditing] = useState(null);
+  const [catForm, setCatForm] = useState(null);
   const [error, setError] = useState('');
 
-  const load = () => {
-    const url = '/raw-stock' + (cat ? `?category=${cat}` : '');
-    api.get(url).then(setRows).catch((e) => setError(e.message));
-  };
-  useEffect(() => { load(); }, [cat]);
-  useEffect(() => { api.get('/raw-categories').then(setCats).catch(() => {}); }, []);
+  const load = () => api.get('/raw-stock').then(setRows).catch((e) => setError(e.message));
+  const loadCats = () => api.get('/raw-categories').then(setCats).catch(() => {});
+  useEffect(() => { load(); loadCats(); }, []);
 
   const category = (slug) => cats.find((c) => c.slug === slug);
+  const statsFor = (slug) => {
+    const list = rows.filter((r) => r.category_slug === slug);
+    return {
+      lines: list.length,
+      quantity: list.reduce((s, r) => s + (Number(r.quantity) || 0), 0),
+      pairs: list.reduce((s, r) => s + (Number(r.total_pairs) || 0), 0),
+      value: list.reduce((s, r) => s + (Number(r.amount) || 0), 0),
+      usesPairs: !!category(slug)?.uses_pairs,
+    };
+  };
 
   const save = async (e) => {
     e.preventDefault();
@@ -40,6 +60,21 @@ export default function RawStock() {
     } catch (err) { setError(err.message); }
   };
 
+  const saveCategory = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const name = fd.get('name');
+    const slug = (fd.get('slug') || name || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    try {
+      await api.post('/raw-categories', {
+        name, slug, unit_label: fd.get('unit_label') || 'unit',
+        uses_pairs: fd.get('uses_pairs') === 'yes',
+      });
+      setCatForm(null);
+      loadCats();
+    } catch (err) { setError(err.message); }
+  };
+
   const remove = async (row) => {
     if (!confirm(`Move "${row.item}" to the recycle bin?`)) return;
     await api.del('/raw-stock/' + row.id);
@@ -48,29 +83,88 @@ export default function RawStock() {
 
   const customFields = editing ? (category(editing.category_slug)?.fields_json ? JSON.parse(category(editing.category_slug).fields_json) : []) : [];
   const editingCustom = editing?.custom_json ? JSON.parse(editing.custom_json) : {};
+  const shown = cat ? rows.filter((r) => r.category_slug === cat) : rows;
+  const totalPairs = rows.reduce((s, r) => s + (Number(r.total_pairs) || 0), 0);
+  const totalValue = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
 
   return (
     <div>
-      <PageHeader title="Raw Stock" actions={
-        <>
-          <Select value={cat} onChange={(e) => setCat(e.target.value)} className="!w-40">
-            <option value="">All categories</option>
-            {cats.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
-          </Select>
-          <Button onClick={() => setEditing({ item: '', category_slug: cat || 'uppers', article_code: '', pack_type: '', pairs_per_pack: '', quantity: '', unit: '', unit_price: '', supplier_id: '', date: today() })}>
-            <Plus size={15} /> Add stock
-          </Button>
-        </>
-      } />
+      <PageHeader
+        label="Raw material"
+        title="Raw Stock"
+        description="Each category has its own page. Quantities convert into pairs automatically where the material is packed."
+        actions={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => downloadCSV('raw-stock.csv',
+              ['Date', 'Item', 'Category', 'Article', 'Pack type', 'Pairs/pack', 'Quantity', 'Unit', 'Total pairs', 'Unit price', 'Amount', 'Supplier'],
+              rows.map((r) => [r.date, r.item, r.category_slug, r.article_code, r.pack_type, r.pairs_per_pack, r.quantity, r.unit, r.total_pairs, r.unit_price, r.amount, r.supplier_name]))}>
+              <Download size={13} /> Excel / CSV
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => window.print()}><Printer size={13} /> PDF / Print</Button>
+            <Button variant="secondary" onClick={() => setCatForm({ name: '', slug: '', unit_label: 'unit', uses_pairs: 'no' })}>
+              <Plus size={15} /> New category
+            </Button>
+            <Button onClick={() => setEditing({ item: '', category_slug: cat || 'uppers', article_code: '', pack_type: '', pairs_per_pack: '', quantity: '', unit: '', unit_price: '', supplier_id: '', date: today() })}>
+              <Plus size={15} /> Add stock
+            </Button>
+          </>
+        }
+      />
       {error && <div className="mb-3 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">{error}</div>}
-      <Card>
-        {rows.length === 0 ? <Empty>No raw stock entries yet.</Empty> : (
+
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Categories" value={fmtNum(cats.length)} accent="copper" />
+        <StatCard label="Stock lines" value={fmtNum(rows.length)} accent="teal" />
+        <StatCard label="Pairs in stock" value={`${fmtNum(totalPairs)} prs`} accent="ink" />
+        <StatCard label="Stock value" value={fmtRs(totalValue)} accent="copper" />
+      </div>
+
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {cats.map((c) => {
+          const Icon = ICONS[c.slug] || Boxes;
+          const st = statsFor(c.slug);
+          return (
+            <div key={c.slug} className={`rounded-xl border bg-card p-4 shadow-card transition-colors ${cat === c.slug ? 'border-teal' : 'border-borderc'}`}>
+              <div className="flex items-start justify-between gap-2">
+                <Icon size={18} className="text-copper" />
+                {BUILT_IN.includes(c.slug) && <Badge tone="neutral">Built in</Badge>}
+              </div>
+              <div className="mt-2 font-heading text-[15px] font-bold">{c.name}</div>
+              <div className="mt-0.5 text-[11px] leading-snug text-mutedfg">{DESCRIPTIONS[c.slug] || 'Raw material category'}</div>
+              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-borderc pt-2.5">
+                <div><div className="microlabel">Lines</div><div className="num font-bold">{fmtNum(st.lines)}</div></div>
+                <div><div className="microlabel">Quantity</div><div className="num font-bold">{fmtNum(st.quantity)}</div></div>
+                <div>
+                  <div className="microlabel">{st.usesPairs ? 'Pairs' : 'Value'}</div>
+                  <div className="num font-bold">{st.usesPairs ? fmtNum(st.pairs) : fmtRs(st.value)}</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setCat(cat === c.slug ? '' : c.slug)}
+                className="mt-3 text-[12px] font-semibold text-copper hover:underline"
+              >
+                {cat === c.slug ? 'Showing below — show all' : `Open ${c.name} →`}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <Card
+        title={cat ? category(cat)?.name || cat : 'All categories'}
+        actions={
+          cat ? (
+            <button onClick={() => setCat('')} className="text-[12px] font-semibold text-mutedfg hover:text-fg">Show all categories</button>
+          ) : null
+        }
+      >
+        {shown.length === 0 ? <Empty>No raw stock entries yet.</Empty> : (
           <div className="overflow-x-auto">
             <table className="tbl">
               <thead><tr><th>Item</th><th>Category</th><th>Article</th><th>Pack type</th><th className="text-right">Pairs/pack</th><th className="text-right">Qty</th><th className="text-right">Total pairs</th><th className="text-right">Price</th><th className="text-right">Amount</th><th>Supplier</th><th>Date</th><th></th></tr></thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id}>
+                {shown.map((r) => (
+                  <ClickableRow key={r.id} onOpen={() => setEditing({ ...r, supplier_id: r.supplier_id || '' })}>
                     <td className="font-semibold">{r.item}</td>
                     <td><Badge tone="copper">{r.category_slug}</Badge></td>
                     <td className="num">{r.article_code || '—'}</td>
@@ -83,10 +177,10 @@ export default function RawStock() {
                     <td className="text-mutedfg">{r.supplier_name || '—'}</td>
                     <td className="num text-mutedfg">{r.date}</td>
                     <td className="whitespace-nowrap">
-                      <IconButton onClick={() => setEditing({ ...r, supplier_id: r.supplier_id || '' })}><Pencil size={14} /></IconButton>
-                      <IconButton onClick={() => remove(r)}><Trash2 size={14} /></IconButton>
+                      <IconButton onClick={rowAction(() => setEditing({ ...r, supplier_id: r.supplier_id || '' }))}><Pencil size={14} /></IconButton>
+                      <IconButton onClick={rowAction(() => remove(r))}><Trash2 size={14} /></IconButton>
                     </td>
-                  </tr>
+                  </ClickableRow>
                 ))}
               </tbody>
             </table>
@@ -105,8 +199,19 @@ export default function RawStock() {
                 </Select>
               </Field>
               <Field label="Article code"><Input name="article_code" defaultValue={editing.article_code} placeholder="HSF-001" /></Field>
-              <Field label="Pack type"><Input name="pack_type" defaultValue={editing.pack_type} placeholder="bag" /></Field>
-              <Field label="Pairs per pack"><Input name="pairs_per_pack" type="number" step="any" min="0" defaultValue={editing.pairs_per_pack} placeholder="auto → total pairs" /></Field>
+              <Field label="Pack type"><Input name="pack_type" value={editing.pack_type} placeholder="bag"
+                onChange={(e) => setEditing({ ...editing, pack_type: e.target.value, pairs_per_pack: isBag(e.target.value) ? (editing.pairs_per_pack || BAG_SIZES[0]) : editing.pairs_per_pack })} /></Field>
+              <Field label={isBag(editing.pack_type) ? 'Bag size' : 'Pairs per pack'}>
+                {isBag(editing.pack_type) ? (
+                  <Select name="pairs_per_pack" value={editing.pairs_per_pack || BAG_SIZES[0]}
+                    onChange={(e) => setEditing({ ...editing, pairs_per_pack: e.target.value })}>
+                    {[...new Set([...BAG_SIZES, Number(editing.pairs_per_pack) || 0])].filter((n) => n > 0).sort((a, b) => a - b)
+                      .map((n) => <option key={n} value={n}>{n}-pair bag</option>)}
+                  </Select>
+                ) : (
+                  <Input name="pairs_per_pack" type="number" step="any" min="0" defaultValue={editing.pairs_per_pack} placeholder="auto → total pairs" />
+                )}
+              </Field>
               <Field label="Quantity *"><Input name="quantity" type="number" step="any" min="0" defaultValue={editing.quantity} required /></Field>
               <Field label="Unit"><Input name="unit" defaultValue={editing.unit} placeholder="bags" /></Field>
               <Field label="Unit price (Rs)"><Input name="unit_price" type="number" step="any" min="0" defaultValue={editing.unit_price} /></Field>
@@ -127,6 +232,25 @@ export default function RawStock() {
             <div className="mt-2 flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
               <Button type="submit">Save</Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+
+      {catForm && (
+        <Dialog title="New raw category" onClose={() => setCatForm(null)}>
+          <form onSubmit={saveCategory} className="p-5">
+            <Field label="Name *"><Input name="name" required autoFocus placeholder="Sole sheets" /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Slug"><Input name="slug" placeholder="sole-sheets" /></Field>
+              <Field label="Unit label"><Input name="unit_label" defaultValue="unit" placeholder="bag" /></Field>
+              <Field label="Counts pairs?">
+                <Select name="uses_pairs" defaultValue="no"><option value="no">No — value only</option><option value="yes">Yes — packs convert to pairs</option></Select>
+              </Field>
+            </div>
+            <div className="mt-2 flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setCatForm(null)}>Cancel</Button>
+              <Button type="submit">Create category</Button>
             </div>
           </form>
         </Dialog>
