@@ -17,13 +17,13 @@ const kfmt = (v) => (v >= 1000 ? v / 1000 + 'k' : v);
 export default function Dashboard() {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
-  const [updated, setUpdated] = useState(null);
+  
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setD(await api.get('/dashboard'));
-      setUpdated(new Date());
+      
       setError('');
     } catch (e) {
       setError(e.message);
@@ -49,29 +49,38 @@ export default function Dashboard() {
 
   return (
     <div>
-      <PageHeader
-        label="Hiker Shoes Factory"
-        title="Factory dashboard"
-        description="Live stock, production and sales across every category — refreshed automatically."
-        actions={
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-mutedfg">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-              Live · {updated ? updated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}
-            </span>
-            <Button variant="secondary" size="sm" disabled={busy}
-              onClick={() => { setBusy(true); load(); }}>
-              <RefreshCw size={13} className={busy ? 'animate-spin' : ''} /> Refresh
-            </Button>
-          </div>
-        }
-      />
+  <PageHeader
+    label="Hiker Shoes Factory"
+    title="Factory dashboard"
+    description="Live stock, production and sales across every category — refreshed automatically."
+    actions={
+      <div className="flex items-center gap-3">
+        <span
+          className="h-2 w-2 animate-pulse rounded-full bg-emerald-500"
+          title="Live"
+        />
 
-      {d.low_stock && (
-        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[12px] font-semibold text-amber-800">
-          Uppers stock is below the low-stock alert level — top up soon.
-        </div>
-      )}
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            load();
+          }}
+        >
+          <RefreshCw size={13} className={busy ? 'animate-spin' : ''} />
+          Refresh
+        </Button>
+      </div>
+    }
+  />
+
+  {d.low_stock && (
+    <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-[12px] font-semibold text-amber-800">
+      Uppers stock is below the low-stock alert level — top up soon.
+    </div>
+  )}
 
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard label="Sales invoiced" value={fmtRs(d.sales_invoiced)} sub={`${fmtNum(d.invoice_count)} invoice(s)`} accent="copper" />
