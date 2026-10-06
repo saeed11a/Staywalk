@@ -97,7 +97,10 @@ export default function AppShell() {
     document.documentElement.classList.toggle('dark', dark);
     localStorage.setItem('hiker_theme', dark ? 'dark' : 'light');
   }, [dark]);
-
+useEffect(() => {
+  const id = setInterval(() => setNow(new Date()), 1000);
+  return () => clearInterval(id);
+}, []);
   useEffect(() => setDrawer(false), [location.pathname]);
 
   const name = user?.name || 'Admin';
