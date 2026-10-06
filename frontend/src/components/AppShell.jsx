@@ -83,7 +83,7 @@ export default function AppShell() {
   const { user, logout } = useAuth();
   const [company, setCompany] = useState('HIKER Shoes Factory');
   const [drawer, setDrawer] = useState(false);
-  const [dark, setDark] = useState(() => localStorage.getItem('hiker_theme') === 'dark');
+  const [now, setNow] = useState(() => new Date());
   const location = useLocation();
 
   useEffect(() => {
