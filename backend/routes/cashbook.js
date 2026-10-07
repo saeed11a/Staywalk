@@ -1,6 +1,12 @@
 const express = require('express');
-const { db } = require('../db');
-const { recordPayment, recordKharcha, roznamchaPost, httpError } = require('../lib/stock-ops');
+const { query } = require('../db');
+const {
+  recordPayment,
+  recordKharcha,
+  roznamchaPost,
+  httpError
+} = require('../lib/stock-ops');
+
 const router = express.Router();
 
 // Mounted at /payments, /roznamcha and /kharcha — dispatched by baseUrl
@@ -10,75 +16,203 @@ function kind(req) {
   return 'kharcha';
 }
 
-function dateClause(req) {
+function dateClause(req, startIndex = 1) {
   const { from, to } = req.query;
-  return from && to ? 'AND date BETWEEN ? AND ?' : '';
+
+  return from && to
+    ? `AND date BETWEEN $${startIndex} AND $${startIndex + 1}`
+    : '';
 }
+
 function dateArgs(req) {
   const { from, to } = req.query;
   return from && to ? [from, to] : [];
 }
 
-router.get('/', (req, res) => {
-  const k = kind(req);
-  if (k === 'payments') {
-    res.json(db.prepare(`SELECT * FROM payments WHERE is_deleted = 0 ${dateClause(req)} ORDER BY date DESC, id DESC`).all(...dateArgs(req)));
-  } else if (k === 'roznamcha') {
-    res.json(db.prepare(`SELECT * FROM roznamcha WHERE is_deleted = 0 ${dateClause(req)} ORDER BY date DESC, id DESC`).all(...dateArgs(req)));
-  } else {
-    res.json(db.prepare(`SELECT * FROM kharcha WHERE is_deleted = 0 ${dateClause(req)} ORDER BY date DESC, id DESC`).all(...dateArgs(req)));
+router.get('/', async (req, res, next) => {
+  try {
+    const k = kind(req);
+    const args = dateArgs(req);
+
+    let table;
+
+    if (k === 'payments') {
+      table = 'payments';
+    } else if (k === 'roznamcha') {
+      table = 'roznamcha';
+    } else {
+      table = 'kharcha';
+    }
+
+    const result = await query(
+      `SELECT *
+       FROM ${table}
+       WHERE is_deleted = 0
+       ${dateClause(req)}
+       ORDER BY date DESC, id DESC`,
+      args
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    next(error);
   }
 });
 
-router.post('/', (req, res) => {
-  const k = kind(req);
-  const d = req.body;
-  if (k === 'payments') {
-    if (!d.party_name || !d.amount) throw httpError(400, 'Party and amount are required');
-    const id = recordPayment({
-      party_type: d.party_type || 'customer', party_id: d.party_id || null, party_name: d.party_name,
-      direction: d.direction === 'out' ? 'out' : 'in', amount: Number(d.amount),
-      date: d.date || new Date().toISOString().slice(0, 10),
-      method: d.method || 'Cash', reference: d.reference || '',
+router.post('/', async (req, res, next) => {
+  try {
+    const k = kind(req);
+    const d = req.body;
+
+    if (k === 'payments') {
+      if (!d.party_name || !d.amount) {
+        throw httpError(400, 'Party and amount are required');
+      }
+
+      const id = await recordPayment({
+        party_type: d.party_type || 'customer',
+        party_id: d.party_id || null,
+        party_name: d.party_name,
+        direction: d.direction === 'out' ? 'out' : 'in',
+        amount: Number(d.amount),
+        date:
+          d.date ||
+          new Date().toISOString().slice(0, 10),
+        method: d.method || 'Cash',
+        reference: d.reference || ''
+      });
+
+      return res.status(201).json({ id });
+    }
+
+    if (k === 'kharcha') {
+      if (!d.amount) {
+        throw httpError(400, 'Amount is required');
+      }
+
+      const id = await recordKharcha({
+        date:
+          d.date ||
+          new Date().toISOString().slice(0, 10),
+        category: d.category || '',
+        description: d.description || '',
+        amount: Number(d.amount),
+        method: d.method || 'Cash'
+      });
+
+      return res.status(201).json({ id });
+    }
+
+    // Roznamcha manual entry (other_income / opening)
+    if (!d.amount || !d.direction) {
+      throw httpError(
+        400,
+        'Direction and amount are required'
+      );
+    }
+
+    const id = await roznamchaPost({
+      date:
+        d.date ||
+        new Date().toISOString().slice(0, 10),
+      direction: d.direction === 'out' ? 'out' : 'in',
+      source: d.source || 'other_income',
+      party: d.party || '',
+      description: d.description || '',
+      category: d.category || '',
+      amount: Number(d.amount),
+      method: d.method || 'Cash',
+      reference: d.reference || ''
     });
-    return res.status(201).json({ id });
+
+    res.status(201).json({ id });
+  } catch (error) {
+    next(error);
   }
-  if (k === 'kharcha') {
-    if (!d.amount) throw httpError(400, 'Amount is required');
-    const id = recordKharcha({
-      date: d.date || new Date().toISOString().slice(0, 10), category: d.category || '',
-      description: d.description || '', amount: Number(d.amount), method: d.method || 'Cash',
-    });
-    return res.status(201).json({ id });
-  }
-  // Roznamcha manual entry (other_income / opening)
-  if (!d.amount || !d.direction) throw httpError(400, 'Direction and amount are required');
-  const info = db.prepare(`INSERT INTO roznamcha (date, direction, source, party, description, category, amount, method, reference)
-    VALUES (?,?,?,?,?,?,?,?,?)`)
-    .run(d.date || new Date().toISOString().slice(0, 10), d.direction === 'out' ? 'out' : 'in',
-      d.source || 'other_income', d.party || '', d.description || '', d.category || '',
-      Number(d.amount), d.method || 'Cash', d.reference || '');
-  res.status(201).json({ id: info.lastInsertRowid });
 });
 
-router.put('/:id', (req, res) => {
-  const k = kind(req);
-  if (k !== 'roznamcha') throw httpError(400, 'Only roznamcha entries can be edited directly');
-  const d = req.body;
-  const row = db.prepare('SELECT * FROM roznamcha WHERE id = ? AND is_deleted = 0').get(req.params.id);
-  if (!row) throw httpError(404, 'Record not found');
-  db.prepare(`UPDATE roznamcha SET date=?, direction=?, source=?, party=?, description=?, category=?, amount=?, method=?, reference=? WHERE id=?`)
-    .run(d.date || row.date, d.direction === 'out' ? 'out' : 'in', d.source || row.source, d.party ?? row.party,
-      d.description ?? row.description, d.category ?? row.category, Number(d.amount) || row.amount,
-      d.method || row.method, d.reference ?? row.reference, row.id);
-  res.json({ ok: true });
+router.put('/:id', async (req, res, next) => {
+  try {
+    const k = kind(req);
+
+    if (k !== 'roznamcha') {
+      throw httpError(
+        400,
+        'Only roznamcha entries can be edited directly'
+      );
+    }
+
+    const d = req.body;
+
+    const result = await query(
+      `SELECT *
+       FROM roznamcha
+       WHERE id = $1
+         AND is_deleted = 0`,
+      [req.params.id]
+    );
+
+    const row = result.rows[0];
+
+    if (!row) {
+      throw httpError(404, 'Record not found');
+    }
+
+    await query(
+      `UPDATE roznamcha
+       SET date = $1,
+           direction = $2,
+           source = $3,
+           party = $4,
+           description = $5,
+           category = $6,
+           amount = $7,
+           method = $8,
+           reference = $9
+       WHERE id = $10`,
+      [
+        d.date || row.date,
+        d.direction === 'out' ? 'out' : 'in',
+        d.source || row.source,
+        d.party ?? row.party,
+        d.description ?? row.description,
+        d.category ?? row.category,
+        Number(d.amount) || Number(row.amount),
+        d.method || row.method,
+        d.reference ?? row.reference,
+        row.id
+      ]
+    );
+
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.delete('/:id', (req, res) => {
-  const k = kind(req);
-  const t = k === 'payments' ? 'payments' : k === 'roznamcha' ? 'roznamcha' : 'kharcha';
-  db.prepare(`UPDATE ${t} SET is_deleted = 1, deleted_date = datetime('now') WHERE id = ?`).run(req.params.id);
-  res.json({ ok: true });
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const k = kind(req);
+
+    const table =
+      k === 'payments'
+        ? 'payments'
+        : k === 'roznamcha'
+          ? 'roznamcha'
+          : 'kharcha';
+
+    await query(
+      `UPDATE ${table}
+       SET is_deleted = 1,
+           deleted_date = NOW()
+       WHERE id = $1`,
+      [req.params.id]
+    );
+
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;
