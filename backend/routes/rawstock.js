@@ -1,174 +1,86 @@
 const express = require('express');
 const { query } = require('../db');
-const { pairsFromPack, httpError } = require('../lib/stock-ops');
+const { pairsFromCartons, httpError } = require('../lib/stock-ops');
 
-// ----- Raw categories -----
-const categories = express.Router();
+const router = express.Router();
 
-categories.get('/', async (req, res, next) => {
+// Live balance per article
+router.get('/', async (req, res, next) => {
   try {
-    const result = await query(`
-      SELECT *
-      FROM raw_categories
-      WHERE is_deleted = 0
-      ORDER BY sort_order, name
+    const stockResult = await query(`
+      SELECT
+        a.id AS article_id,
+        a.code,
+        a.name,
+        COALESCE(SUM(rs.cartons), 0) AS cartons,
+        COALESCE(SUM(rs.pairs), 0) AS pairs
+      FROM articles a
+      LEFT JOIN ready_shoes rs
+        ON rs.article_id = a.id
+        AND rs.is_deleted = 0
+      WHERE a.is_deleted = 0
+      GROUP BY a.id, a.code, a.name
+      ORDER BY a.code
     `);
 
-    res.json(result.rows);
-  } catch (error) {
-    next(error);
-  }
-});
-
-categories.post('/', async (req, res, next) => {
-  try {
-    const {
-      name,
-      slug,
-      unit_label,
-      uses_pairs,
-      sort_order,
-      fields
-    } = req.body;
-
-    if (!name || !slug) {
-      throw httpError(400, 'Name and slug are required');
-    }
-
-    const result = await query(
-      `
-      INSERT INTO raw_categories
-        (name, slug, unit_label, uses_pairs, sort_order, fields_json)
-      VALUES
-        ($1, $2, $3, $4, $5, $6)
-      RETURNING id
-      `,
-      [
-        name,
-        slug,
-        unit_label || 'unit',
-        uses_pairs ? 1 : 0,
-        sort_order || 0,
-        JSON.stringify(fields || [])
-      ]
-    );
-
-    res.status(201).json({ id: result.rows[0].id });
-  } catch (error) {
-    next(error);
-  }
-});
-
-categories.delete('/:id', async (req, res, next) => {
-  try {
-    await query(
-      `
-      UPDATE raw_categories
-      SET
-        is_deleted = 1,
-        deleted_date = NOW()
-      WHERE id = $1
-      `,
-      [req.params.id]
-    );
-
-    res.json({ ok: true });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// ----- Raw stock -----
-const stock = express.Router();
-
-stock.get('/', async (req, res, next) => {
-  try {
-    const slug = req.query.category;
-
-    const params = [];
-    let condition = 'rs.is_deleted = 0';
-
-    if (slug) {
-      params.push(slug);
-      condition += ` AND rs.category_slug = $1`;
-    }
-
-    const result = await query(
-      `
+    const movementsResult = await query(`
       SELECT
         rs.*,
-        COALESCE(s.name, '') AS supplier_name
-      FROM raw_stock rs
-      LEFT JOIN suppliers s
-        ON s.id = rs.supplier_id
-      WHERE ${condition}
+        a.code AS article_code,
+        a.name AS article_name
+      FROM ready_shoes rs
+      JOIN articles a
+        ON a.id = rs.article_id
+      WHERE rs.is_deleted = 0
       ORDER BY rs.date DESC, rs.id DESC
-      `,
-      params
-    );
+      LIMIT 200
+    `);
 
-    res.json(result.rows);
+    res.json({
+      stock: stockResult.rows,
+      movements: movementsResult.rows
+    });
   } catch (error) {
     next(error);
   }
 });
 
-stock.post('/', async (req, res, next) => {
+router.post('/', async (req, res, next) => {
   try {
     const d = req.body;
 
-    if (!d.item || !d.category_slug) {
-      throw httpError(400, 'Item and category are required');
+    if (!d.article_id) {
+      throw httpError(400, 'Article is required');
     }
 
-    const totalPairs = pairsFromPack(
-      d.quantity,
-      d.pairs_per_pack
+    const pairs = pairsFromCartons(
+      d.cartons,
+      d.pairs_per_carton
     );
-
-    const amount =
-      (Number(d.quantity) || 0) *
-      (Number(d.unit_price) || 0);
 
     const result = await query(
       `
-      INSERT INTO raw_stock
+      INSERT INTO ready_shoes
         (
-          category_slug,
-          item,
-          article_code,
-          pack_type,
-          pairs_per_pack,
-          quantity,
-          unit,
-          total_pairs,
-          unit_price,
-          amount,
-          supplier_id,
-          date,
-          custom_json
+          article_id,
+          carton_type,
+          pairs_per_carton,
+          cartons,
+          pairs,
+          source,
+          date
         )
       VALUES
-        (
-          $1, $2, $3, $4, $5, $6, $7,
-          $8, $9, $10, $11, $12, $13
-        )
+        ($1, $2, $3, $4, $5, 'manual', $6)
       RETURNING id
       `,
       [
-        d.category_slug,
-        d.item,
-        d.article_code || '',
-        d.pack_type || '',
-        Number(d.pairs_per_pack) || 0,
-        Number(d.quantity) || 0,
-        d.unit || '',
-        totalPairs,
-        Number(d.unit_price) || 0,
-        amount,
-        d.supplier_id || null,
-        d.date || null,
-        JSON.stringify(d.custom || {})
+        d.article_id,
+        d.carton_type || '',
+        Number(d.pairs_per_carton) || 0,
+        Number(d.cartons) || 0,
+        pairs,
+        d.date || null
       ]
     );
 
@@ -180,67 +92,16 @@ stock.post('/', async (req, res, next) => {
   }
 });
 
-stock.put('/:id', async (req, res, next) => {
-  try {
-    const d = req.body;
-
-    const totalPairs = pairsFromPack(
-      d.quantity,
-      d.pairs_per_pack
-    );
-
-    const amount =
-      (Number(d.quantity) || 0) *
-      (Number(d.unit_price) || 0);
-
-    await query(
-      `
-      UPDATE raw_stock
-      SET
-        item = $1,
-        pack_type = $2,
-        pairs_per_pack = $3,
-        quantity = $4,
-        unit = $5,
-        total_pairs = $6,
-        unit_price = $7,
-        amount = $8,
-        supplier_id = $9,
-        date = $10,
-        custom_json = $11
-      WHERE id = $12
-      `,
-      [
-        d.item,
-        d.pack_type || '',
-        Number(d.pairs_per_pack) || 0,
-        Number(d.quantity) || 0,
-        d.unit || '',
-        totalPairs,
-        Number(d.unit_price) || 0,
-        amount,
-        d.supplier_id || null,
-        d.date || null,
-        JSON.stringify(d.custom || {}),
-        req.params.id
-      ]
-    );
-
-    res.json({ ok: true });
-  } catch (error) {
-    next(error);
-  }
-});
-
-stock.delete('/:id', async (req, res, next) => {
+router.delete('/:id', async (req, res, next) => {
   try {
     await query(
       `
-      UPDATE raw_stock
+      UPDATE ready_shoes
       SET
         is_deleted = 1,
         deleted_date = NOW()
       WHERE id = $1
+        AND source = 'manual'
       `,
       [req.params.id]
     );
@@ -251,7 +112,4 @@ stock.delete('/:id', async (req, res, next) => {
   }
 });
 
-module.exports = {
-  categories,
-  stock
-};
+module.exports = router;
