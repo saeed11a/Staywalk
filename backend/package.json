@@ -4,7 +4,7 @@
   "private": true,
   "main": "server.js",
   "dependencies": {
-    "better-sqlite3": "^12.2.0",
+"pg": "^8.16.3",
     "express": "^4.21.2"
   }
 }
