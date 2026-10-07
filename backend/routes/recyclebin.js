@@ -1,6 +1,7 @@
 const express = require('express');
-const { db } = require('../db');
+const { query } = require('../db');
 const { httpError } = require('../lib/stock-ops');
+
 const router = express.Router();
 
 // Every soft-deleted record from all modules
@@ -19,29 +20,74 @@ const TABLES = [
   ['raw_categories', 'SELECT id, name AS label, deleted_date FROM raw_categories WHERE is_deleted = 1'],
 ];
 
-router.get('/', (req, res) => {
-  const out = [];
-  for (const [table, sql] of TABLES) {
-    for (const row of db.prepare(sql).all()) {
-      out.push({ table, id: row.id, label: row.label, deleted_date: row.deleted_date });
+router.get('/', async (req, res, next) => {
+  try {
+    const out = [];
+
+    for (const [table, sql] of TABLES) {
+      const result = await query(sql);
+
+      for (const row of result.rows) {
+        out.push({
+          table,
+          id: row.id,
+          label: row.label,
+          deleted_date: row.deleted_date
+        });
+      }
     }
+
+    out.sort((a, b) => {
+      if (!a.deleted_date) return 1;
+      if (!b.deleted_date) return -1;
+      return a.deleted_date < b.deleted_date ? 1 : -1;
+    });
+
+    res.json(out);
+  } catch (error) {
+    next(error);
   }
-  out.sort((a, b) => (a.deleted_date < b.deleted_date ? 1 : -1));
-  res.json(out);
 });
 
-router.post('/restore', (req, res) => {
-  const { table, id } = req.body;
-  if (!TABLES.find(([t]) => t === table)) throw httpError(400, 'Unknown table');
-  db.prepare(`UPDATE ${table} SET is_deleted = 0, deleted_date = NULL WHERE id = ?`).run(id);
-  res.json({ ok: true });
+router.post('/restore', async (req, res, next) => {
+  try {
+    const { table, id } = req.body;
+
+    if (!TABLES.find(([t]) => t === table)) {
+      throw httpError(400, 'Unknown table');
+    }
+
+    await query(
+      `UPDATE ${table}
+       SET is_deleted = 0, deleted_date = NULL
+       WHERE id = $1`,
+      [id]
+    );
+
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.post('/purge', (req, res) => {
-  const { table, id } = req.body;
-  if (!TABLES.find(([t]) => t === table)) throw httpError(400, 'Unknown table');
-  db.prepare(`DELETE FROM ${table} WHERE id = ? AND is_deleted = 1`).run(id);
-  res.json({ ok: true });
+router.post('/purge', async (req, res, next) => {
+  try {
+    const { table, id } = req.body;
+
+    if (!TABLES.find(([t]) => t === table)) {
+      throw httpError(400, 'Unknown table');
+    }
+
+    await query(
+      `DELETE FROM ${table}
+       WHERE id = $1 AND is_deleted = 1`,
+      [id]
+    );
+
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;
