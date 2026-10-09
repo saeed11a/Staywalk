@@ -57,10 +57,93 @@ h1, h2, h3 {
 .tbl tbody tr:last-child td { @apply border-b-0; }
 .tbl tbody tr:hover { @apply bg-muted/50; }
 
-/* Print: only the invoice sheet */
+/* HIKER+ ERP printing */
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
 @media print {
-  body { background: white !important; }
-  .no-print { display: none !important; }
-  .print-sheet { box-shadow: none !important; margin: 0 !important; }
-  @page { size: A4; margin: 0; }
+  html,
+  body,
+  #root {
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  * {
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-sheet {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+  }
+
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .overflow-hidden {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  table,
+  .tbl {
+    width: 100% !important;
+    min-width: 0 !important;
+    border-collapse: collapse !important;
+    table-layout: auto !important;
+    font-size: 9px !important;
+  }
+
+  th,
+  td {
+    padding: 4px !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    color: black !important;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  button,
+  input,
+  select,
+  textarea,
+  nav,
+  aside,
+  .no-print {
+    display: none !important;
+  }
+
+  a {
+    color: black !important;
+    text-decoration: none !important;
+  }
 }
