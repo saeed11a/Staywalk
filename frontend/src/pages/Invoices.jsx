@@ -45,9 +45,21 @@ export default function Invoices() {
               rows.map((r) => [r.invoice_no, r.date, r.customer_name, r.total_cartons, r.total_pairs, r.total, r.received, r.balance, r.status]))}>
               <Download size={13} /> Excel / CSV
             </Button>
-            <Button variant="secondary" size="sm" onClick={() => window.print()}><Printer size={13} /> PDF / Print</Button>
-            <Button onClick={() => navigate('/invoices/new')}><Plus size={15} /> New invoice</Button>
-          </>
+
+            
+<Button
+  variant="secondary"
+  size="sm"
+  onClick={() => window.print()}
+>
+  <Printer size={13} /> PDF / Print
+</Button>
+
+<Button onClick={() => navigate('/invoices/new')}>
+  <Plus size={15} /> New invoice
+</Button>
+</>
+          
         }
       />
       {error && <div className="mb-3 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">{error}</div>}
