@@ -123,7 +123,7 @@ export default function Invoices() {
             <table className="tbl">
               <thead><tr><th>Article</th><th>Carton type</th><th className="text-right">Cartons</th><th className="text-right">Pairs</th><th className="text-right">Rate</th><th className="text-right">Amount</th></tr></thead>
               <tbody>
-                {viewing.lines.map((l) => (
+                {(viewing.lines || []).map((l) => (
                   <tr key={l.id}>
                     <td>{l.article_code} {l.article_name}</td>
                     <td className="text-mutedfg">{l.carton_type || '—'}</td>
@@ -136,8 +136,12 @@ export default function Invoices() {
               </tbody>
             </table>
             <div className="mt-3 flex justify-end gap-2">
-              <Link to={`/invoices/${viewing.id}/print`}><Button variant="secondary"><Printer size={14} /> Print</Button></Link>
-            </div>
+  <Link to={`/invoices/${viewing.id}/print`}>
+    <Button variant="secondary">
+      <Printer size={14} /> Print
+    </Button>
+  </Link>
+</div>
           </div>
         </Dialog>
       )}
