@@ -139,7 +139,8 @@ useEffect(() => {
 </span>
               </div>
               <div className="flex items-center gap-1.5">
-  <div className="whitespace-nowrap text-right text-[10px] font-bold tabular-nums text-fg">
+
+                <div className="whitespace-nowrap text-right text-[8px] font-bold tabular-nums text-fg sm:text-[10px]">
     {new Intl.DateTimeFormat('en-PK', {
       timeZone: 'Asia/Karachi',
       weekday: 'short',
