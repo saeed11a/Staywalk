@@ -139,9 +139,15 @@ useEffect(() => {
 </span>
               </div>
               <div className="flex items-center gap-1.5">
-                
-                <div className="text-right leading-tight">
-  <div className="text-[10px] font-bold tabular-nums text-fg">
+  <div className="whitespace-nowrap text-right text-[10px] font-bold tabular-nums text-fg">
+    {new Intl.DateTimeFormat('en-PK', {
+      timeZone: 'Asia/Karachi',
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).format(now)}
+    {' | '}
     {new Intl.DateTimeFormat('en-PK', {
       timeZone: 'Asia/Karachi',
       hour: '2-digit',
@@ -149,15 +155,7 @@ useEffect(() => {
       hour12: true
     }).format(now)}
   </div>
-  <div className="text-[8px] font-semibold text-mutedfg">
-    {new Intl.DateTimeFormat('en-PK', {
-      timeZone: 'Asia/Karachi',
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    }).format(now)}
-  </div>
-</div>
+              
                 <button
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-mutedfg hover:bg-muted hover:text-fg"
                   onClick={() => setDark(!dark)}
